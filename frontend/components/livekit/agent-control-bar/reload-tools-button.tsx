@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react/dist/ssr';
 import { Toggle } from '@/components/livekit/toggle';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,16 +33,18 @@ export function ReloadToolsButton() {
   };
 
   return (
-    <Toggle
-      size="icon"
-      variant="secondary"
-      aria-label="Reload tools"
-      pressed={false}
-      onPressedChange={handleReload}
-      disabled={loading}
-      className={cn(success && 'text-green-500')}
-    >
-      <ArrowsClockwiseIcon weight="bold" className={cn(loading && 'animate-spin')} />
-    </Toggle>
+    <Tooltip content="Reload tools">
+      <Toggle
+        size="icon"
+        variant="secondary"
+        aria-label="Reload tools"
+        pressed={false}
+        onPressedChange={handleReload}
+        disabled={loading}
+        className={cn(success && 'text-green-500')}
+      >
+        <ArrowsClockwiseIcon weight="bold" className={cn(loading && 'animate-spin')} />
+      </Toggle>
+    </Tooltip>
   );
 }
