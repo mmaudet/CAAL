@@ -5,11 +5,18 @@ import { createPortal } from 'react-dom';
 import { GearSix, X } from '@phosphor-icons/react/dist/ssr';
 import { Button } from '@/components/livekit/button';
 
+interface Voice {
+  id: string;
+  language: string;
+  name?: string;
+}
+
 interface Settings {
   agent_name: string;
   tts_voice: string;
   prompt: string;
   wake_greetings: string[];
+  wake_greetings_fr: string[];
   temperature: number;
   model: string;
   num_ctx: number;
@@ -19,6 +26,8 @@ interface Settings {
   wake_word_model: string;
   wake_word_threshold: number;
   wake_word_timeout: number;
+  language: 'en' | 'fr';
+  stt_language: 'auto' | 'en' | 'fr';
 }
 
 interface SettingsModalProps {
@@ -31,6 +40,7 @@ const DEFAULT_SETTINGS: Settings = {
   tts_voice: 'am_puck',
   prompt: 'default',
   wake_greetings: ["Hey, what's up?", "What's up?", 'How can I help?'],
+  wake_greetings_fr: ['Oui?', "Je t'ecoute!", "Comment puis-je t'aider?"],
   temperature: 0.7,
   model: 'ministral-3:8b',
   num_ctx: 8192,
@@ -40,6 +50,8 @@ const DEFAULT_SETTINGS: Settings = {
   wake_word_model: 'models/hey_cal.onnx',
   wake_word_threshold: 0.5,
   wake_word_timeout: 3.0,
+  language: 'en',
+  stt_language: 'auto',
 };
 
 const DEFAULT_PROMPT = `# Voice Assistant
@@ -56,7 +68,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [promptContent, setPromptContent] = useState('');
   const [, setCustomPromptExists] = useState(false);
-  const [voices, setVoices] = useState<string[]>([]);
+  const [voices, setVoices] = useState<Voice[]>([]);
   const [models, setModels] = useState<string[]>([]);
   const [wakeWordModels, setWakeWordModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,10 +173,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     // If switching to custom and custom doesn't exist, keep current content
   };
 
-  const handleWakeGreetingsChange = (value: string) => {
+  const handleWakeGreetingsChange = (value: string, lang: 'en' | 'fr') => {
     const greetings = value.split('\n').filter((g) => g.trim());
-    setSettings({ ...settings, wake_greetings: greetings });
+    if (lang === 'fr') {
+      setSettings({ ...settings, wake_greetings_fr: greetings });
+    } else {
+      setSettings({ ...settings, wake_greetings: greetings });
+    }
   };
+
+  // Filter voices by selected language
+  const filteredVoices = voices.filter((v) => v.language === settings.language);
 
   if (!isOpen) return null;
 
@@ -196,6 +215,83 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <>
               {error && <div className="rounded-md bg-red-500/10 p-3 text-red-500">{error}</div>}
 
+              {/* Language Selection */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Language</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      // When switching language, also switch to a voice in that language if available
+                      const newVoices = voices.filter((v) => v.language === 'en');
+                      const currentVoiceInNewLang = newVoices.find(
+                        (v) => v.id === settings.tts_voice
+                      );
+                      setSettings({
+                        ...settings,
+                        language: 'en',
+                        tts_voice: currentVoiceInNewLang
+                          ? settings.tts_voice
+                          : newVoices[0]?.id || 'am_puck',
+                      });
+                    }}
+                    className={`rounded-md px-4 py-1.5 text-sm ${
+                      settings.language === 'en'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                  >
+                    English
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newVoices = voices.filter((v) => v.language === 'fr');
+                      const currentVoiceInNewLang = newVoices.find(
+                        (v) => v.id === settings.tts_voice
+                      );
+                      setSettings({
+                        ...settings,
+                        language: 'fr',
+                        tts_voice: currentVoiceInNewLang
+                          ? settings.tts_voice
+                          : newVoices[0]?.id || 'fr_FR-siwis-medium',
+                      });
+                    }}
+                    className={`rounded-md px-4 py-1.5 text-sm ${
+                      settings.language === 'fr'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                  >
+                    Français
+                  </button>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Controls TTS voice and wake greetings language
+                </p>
+              </div>
+
+              {/* STT Language Hint */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Speech Recognition Language</label>
+                <select
+                  value={settings.stt_language}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      stt_language: e.target.value as 'auto' | 'en' | 'fr',
+                    })
+                  }
+                  className="border-input bg-background w-full rounded-md border px-3 py-2"
+                >
+                  <option value="auto">Auto-detect</option>
+                  <option value="en">English only</option>
+                  <option value="fr">French only</option>
+                </select>
+                <p className="text-muted-foreground text-xs">
+                  Hint for speech-to-text. Auto works well for most cases.
+                </p>
+              </div>
+
               {/* Agent Name */}
               <div className="space-y-1">
                 <label className="text-sm font-medium">Agent Name</label>
@@ -207,7 +303,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 />
               </div>
 
-              {/* Voice */}
+              {/* Voice (filtered by language) */}
               <div className="space-y-1">
                 <label className="text-sm font-medium">Voice</label>
                 <select
@@ -215,10 +311,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onChange={(e) => setSettings({ ...settings, tts_voice: e.target.value })}
                   className="border-input bg-background w-full rounded-md border px-3 py-2"
                 >
-                  {voices.length > 0 ? (
-                    voices.map((voice) => (
-                      <option key={voice} value={voice}>
-                        {voice}
+                  {filteredVoices.length > 0 ? (
+                    filteredVoices.map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.name || voice.id}
                       </option>
                     ))
                   ) : (
@@ -270,13 +366,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 />
               </div>
 
-              {/* Wake Greetings */}
+              {/* Wake Greetings - show based on selected language */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Wake Greetings (one per line)</label>
+                <label className="text-sm font-medium">
+                  Wake Greetings ({settings.language === 'fr' ? 'Français' : 'English'})
+                </label>
                 <textarea
-                  value={settings.wake_greetings.join('\n')}
-                  onChange={(e) => handleWakeGreetingsChange(e.target.value)}
+                  value={
+                    settings.language === 'fr'
+                      ? settings.wake_greetings_fr.join('\n')
+                      : settings.wake_greetings.join('\n')
+                  }
+                  onChange={(e) => handleWakeGreetingsChange(e.target.value, settings.language)}
                   rows={4}
+                  placeholder={
+                    settings.language === 'fr'
+                      ? "Oui?\nJe t'ecoute!"
+                      : "Hey, what's up?\nWhat's up?"
+                  }
                   className="border-input bg-background w-full rounded-md border px-3 py-2"
                 />
               </div>
@@ -466,8 +573,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* Note about session restart */}
               <p className="text-muted-foreground text-xs">
-                Note: Model, context size, prompt, and wake word changes take effect on next
-                session.
+                Note: Language, model, context size, prompt, and wake word changes take effect on
+                next session.
               </p>
             </>
           )}
