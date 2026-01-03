@@ -78,9 +78,8 @@ services:
       - KOKORO_URL=http://kokoro:8880
     volumes:
       - caal-memory:/app/data
-      - ./settings.json:/app/settings.json  # Runtime settings (created on first save)
+      - caal-config:/app/config  # Runtime config (settings.json, mcp_servers.json)
       - ./prompt:/app/prompt  # Prompt files (custom.md is gitignored)
-      - ./mcp_servers.json:/app/mcp_servers.json  # Additional MCP servers (optional)
     networks:
       - caal-network
     depends_on:
@@ -217,6 +216,8 @@ networks:
 volumes:
   caal-memory:
     name: caal-memory
+  caal-config:
+    name: caal-config
   speaches-cache:
     name: caal-speaches-cache
   kokoro-cache:
