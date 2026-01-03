@@ -50,15 +50,19 @@ export async function POST(req: Request) {
     );
 
     // Determine the WebSocket URL for the browser
-    // Auto-detect based on request protocol:
-    // - HTTPS requests → use wss:// with Tailscale domain on port 7443
-    // - HTTP requests → use ws:// with request hostname on port 7880
+    // Priority:
+    // 1. If NEXT_PUBLIC_LIVEKIT_URL is an explicit wss:// URL, use it directly
+    // 2. If HTTPS request and NEXT_PUBLIC_LIVEKIT_URL is set, use it
+    // 3. Otherwise, derive ws:// from request hostname
     let serverUrl: string;
     const forwardedProto = req.headers.get('x-forwarded-proto');
     const isHttps = forwardedProto === 'https' || req.url.startsWith('https://');
 
-    if (isHttps && LIVEKIT_PUBLIC_URL) {
-      // Tailscale/HTTPS mode - use configured wss:// URL
+    if (LIVEKIT_PUBLIC_URL && LIVEKIT_PUBLIC_URL.startsWith('wss://')) {
+      // Explicit wss:// URL configured - use it directly (remote LiveKit server)
+      serverUrl = LIVEKIT_PUBLIC_URL;
+    } else if (isHttps && LIVEKIT_PUBLIC_URL) {
+      // Tailscale/HTTPS mode - use configured URL
       serverUrl = LIVEKIT_PUBLIC_URL;
     } else {
       // LAN/HTTP mode - derive from request host

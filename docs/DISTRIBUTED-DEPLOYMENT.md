@@ -429,56 +429,145 @@ nvidia-smi  # GPU usage
 
 ---
 
-## Part 2: MacBook Setup
+## Part 2: macOS Frontend Setup
+
+This section describes how to run the CAAL frontend on a macOS machine (e.g., MacBook) while connecting to the GPU backend server via Tailscale.
 
 ### Prerequisites
 
-- macOS with Homebrew
-- Node.js 18+
-- pnpm
-- Tailscale (connected to same tailnet)
+- macOS (Apple Silicon or Intel)
+- Homebrew package manager
+- Node.js 18+ and pnpm
+- Tailscale installed and connected to the same tailnet as the GPU server
 
 ### Step 1: Install Dependencies
 
 ```bash
-brew install node pnpm tailscale
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Node.js and pnpm
+brew install node pnpm
+
+# Install Tailscale (if not already installed)
+brew install tailscale
 ```
 
-### Step 2: Verify Tailscale Connectivity
+### Step 2: Connect to Tailscale
 
 ```bash
+# Start Tailscale and authenticate
+sudo tailscale up
+
+# Verify connection
 tailscale status
-ping gpu-server.tailnet-name.ts.net
-curl https://gpu-server.tailnet-name.ts.net/health
 ```
 
-### Step 3: Clone and Configure Frontend
+### Step 3: Verify Connectivity to GPU Server
+
+Before configuring the frontend, verify you can reach the GPU server:
+
+```bash
+# Test network connectivity
+ping gpu-server.tailnet-name.ts.net
+
+# Test backend health endpoint
+curl https://gpu-server.tailnet-name.ts.net/health
+# Expected: {"status": "healthy", ...}
+
+# Test LiveKit server (port 7443 via nginx)
+curl https://gpu-server.tailnet-name.ts.net:7443/
+# Expected: OK
+
+# Test models API
+curl https://gpu-server.tailnet-name.ts.net/api/models
+# Expected: {"models": ["ministral-3:14b", ...]}
+```
+
+> [!important] Port Configuration
+> The GPU server exposes LiveKit on port **7443** through nginx (not the default 7880). This provides TLS termination for secure WebSocket connections (wss://).
+
+### Step 4: Clone Repository
 
 ```bash
 git clone https://github.com/CoreWorxLab/caal.git
 cd caal/frontend
 ```
 
-Create `.env.local`:
+### Step 5: Configure Environment Variables
+
+Create `.env.local` in the `frontend` directory:
 
 ```bash
-NEXT_PUBLIC_LIVEKIT_URL=wss://gpu-server.tailnet-name.ts.net
+# LiveKit WebSocket URL (for token generation - server side)
+LIVEKIT_URL=wss://gpu-server.tailnet-name.ts.net:7443
 
-# MUST match GPU server values
+# LiveKit WebSocket URL (for browser connection - client side)
+# When using an explicit wss:// URL, the frontend will use it directly
+# even when running in HTTP mode (localhost development)
+NEXT_PUBLIC_LIVEKIT_URL=wss://gpu-server.tailnet-name.ts.net:7443
+
+# Backend webhook URL (for settings, models, voices APIs)
+# Points to the agent service via nginx reverse proxy
+WEBHOOK_URL=https://gpu-server.tailnet-name.ts.net/api
+
+# LiveKit API credentials - MUST match GPU server values
 LIVEKIT_API_KEY=API3F4xKZpWbzDk
 LIVEKIT_API_SECRET=H8kxJ2mWvPqR7nTcYfLgA0sXeKdMbN9uQwZyVpIoEjHtCrSaFl
 
+# Optional: Picovoice wake word detection (client-side)
+# Get your access key from https://console.picovoice.ai/
 NEXT_PUBLIC_PORCUPINE_ACCESS_KEY=your_picovoice_key
 ```
 
-### Step 4: Start Development
+> [!warning] Credential Security
+> The `.env.local` file contains sensitive API credentials. Ensure it is:
+> - Never committed to git (already in `.gitignore`)
+> - Only readable by your user account
+> - Using credentials that match the GPU server configuration
+
+### Step 6: Install Dependencies and Start
 
 ```bash
+# Install Node.js dependencies
 pnpm install
+
+# Start development server
 pnpm dev
 ```
 
-Open `http://localhost:3000`
+The frontend will be available at `http://localhost:3000`.
+
+### Step 7: Verify Connection
+
+1. Open `http://localhost:3000` in your browser
+2. Grant microphone permissions when prompted
+3. Click "Start Session" or the microphone button
+4. Check the Settings panel - you should see models loaded from the GPU server
+5. Speak to the assistant and verify audio is processed
+
+### Troubleshooting macOS Frontend
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| "Failed to fetch" on connection | Wrong LiveKit URL or port | Verify `NEXT_PUBLIC_LIVEKIT_URL` includes `:7443` |
+| Settings show wrong/no models | Missing `WEBHOOK_URL` | Add `WEBHOOK_URL=https://...` to `.env.local` |
+| "LIVEKIT_URL is not defined" | Missing environment variable | Add `LIVEKIT_URL` (not just `NEXT_PUBLIC_*`) |
+| WebSocket connection refused | Tailscale not connected | Run `tailscale status` and verify connectivity |
+| SSL certificate error | First connection to server | Open `https://gpu-server:7443` in browser first to accept cert |
+| Agent says wrong model | Model mismatch | Open Settings, select correct model from dropdown, save |
+| No microphone access | Browser permissions | Check browser settings, use `localhost` (not IP) |
+
+### Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LIVEKIT_URL` | Yes | LiveKit server URL for token generation (server-side) |
+| `NEXT_PUBLIC_LIVEKIT_URL` | Yes | LiveKit URL for browser WebSocket connection |
+| `LIVEKIT_API_KEY` | Yes | LiveKit API key (must match GPU server) |
+| `LIVEKIT_API_SECRET` | Yes | LiveKit API secret (must match GPU server) |
+| `WEBHOOK_URL` | Yes | Backend API URL for settings/models/voices |
+| `NEXT_PUBLIC_PORCUPINE_ACCESS_KEY` | No | Picovoice key for client-side wake word |
 
 ---
 
