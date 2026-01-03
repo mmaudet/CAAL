@@ -47,6 +47,11 @@ DEFAULT_SETTINGS = {
     "num_ctx": 8192,
     "max_turns": 20,
     "tool_cache_size": 3,
+    # Wake word detection (server-side OpenWakeWord)
+    "wake_word_enabled": False,
+    "wake_word_model": "models/hey_jarvis.onnx",
+    "wake_word_threshold": 0.5,
+    "wake_word_timeout": 3.0,  # seconds of silence before returning to listening
 }
 
 # Cached settings (reloaded on save)

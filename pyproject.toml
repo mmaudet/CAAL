@@ -49,6 +49,9 @@ dependencies = [
 
     # Web search
     "ddgs>=9.0.0",
+
+    # Wake word detection
+    "openwakeword>=0.6.0",
 ]
 
 [project.optional-dependencies]

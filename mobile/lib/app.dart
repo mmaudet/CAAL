@@ -4,7 +4,9 @@ import 'package:livekit_components/livekit_components.dart' as components;
 import 'package:provider/provider.dart';
 
 import 'controllers/app_ctrl.dart';
+import 'controllers/audio_filter_ctrl.dart';
 import 'controllers/tool_status_ctrl.dart';
+import 'controllers/wake_word_state_ctrl.dart';
 import 'screens/agent_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -35,8 +37,6 @@ class _CaalAppState extends State<CaalApp> {
     if (widget.configService.isConfigured) {
       _appCtrl = AppCtrl(
         serverUrl: widget.configService.serverUrl,
-        porcupineAccessKey: widget.configService.porcupineAccessKey,
-        wakeWordPath: widget.configService.wakeWordPath,
       );
     }
   }
@@ -45,8 +45,6 @@ class _CaalAppState extends State<CaalApp> {
     setState(() {
       _appCtrl = AppCtrl(
         serverUrl: widget.configService.serverUrl,
-        porcupineAccessKey: widget.configService.porcupineAccessKey,
-        wakeWordPath: widget.configService.wakeWordPath,
       );
     });
   }
@@ -125,6 +123,11 @@ class _CaalAppState extends State<CaalApp> {
         child: Consumer<AppCtrl>(
           builder: (ctx, appCtrl, _) {
             final toolStatusCtrl = ToolStatusCtrl(room: appCtrl.room);
+            final wakeWordStateCtrl = WakeWordStateCtrl(
+              room: appCtrl.room,
+              serverUrl: widget.configService.serverUrl,
+            );
+            final audioFilterCtrl = AudioFilterCtrl(room: appCtrl.room);
 
             return MultiProvider(
               key: ValueKey(appCtrl.sessionKey),
@@ -132,6 +135,8 @@ class _CaalAppState extends State<CaalApp> {
                 ChangeNotifierProvider<sdk.Session>.value(value: appCtrl.session),
                 ChangeNotifierProvider<components.RoomContext>.value(value: appCtrl.roomContext),
                 ChangeNotifierProvider<ToolStatusCtrl>.value(value: toolStatusCtrl),
+                ChangeNotifierProvider<WakeWordStateCtrl>.value(value: wakeWordStateCtrl),
+                ChangeNotifierProvider<AudioFilterCtrl>.value(value: audioFilterCtrl),
               ],
               child: components.SessionContext(
                 session: appCtrl.session,

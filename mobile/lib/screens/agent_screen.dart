@@ -6,6 +6,7 @@ import 'package:livekit_components/livekit_components.dart' as components;
 import 'package:provider/provider.dart';
 
 import '../controllers/app_ctrl.dart';
+import '../controllers/wake_word_state_ctrl.dart';
 import '../support/agent_selector.dart';
 import '../widgets/agent_layout_switcher.dart';
 import '../widgets/camera_toggle_button.dart';
@@ -255,30 +256,66 @@ class _AgentListeningPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.graphic_eq, size: 32, color: colorScheme.primary.withValues(alpha: 0.7)),
-          const SizedBox(height: 12),
-          Text(
-            'Agent is listening',
-            style: textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (!canListen)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                'Start a conversation to see messages here.',
-                style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+
+    return Consumer<WakeWordStateCtrl>(
+      builder: (context, wakeWordCtrl, _) {
+        final wakeWordState = wakeWordCtrl.state;
+        final isWakeWordMode = wakeWordState != null;
+
+        // Determine icon, text, and color based on server-side wake word state
+        final IconData icon;
+        final String statusText;
+        final String? subtitle;
+        final Color iconColor;
+
+        if (isWakeWordMode) {
+          // Server-side wake word detection is active
+          if (wakeWordState == WakeWordState.listening) {
+            icon = Icons.hearing;
+            statusText = 'Say "Hey Jarvis"';
+            subtitle = 'Waiting for wake word...';
+            iconColor = colorScheme.outline;
+          } else {
+            // active state
+            icon = Icons.graphic_eq;
+            statusText = 'Agent is listening';
+            subtitle = null;
+            iconColor = colorScheme.primary.withValues(alpha: 0.7);
+          }
+        } else {
+          // No server-side wake word, normal always-listening mode
+          icon = Icons.graphic_eq;
+          statusText = 'Agent is listening';
+          subtitle = canListen ? null : 'Start a conversation to see messages here.';
+          iconColor = colorScheme.primary.withValues(alpha: 0.7);
+        }
+
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 32, color: iconColor),
+              const SizedBox(height: 12),
+              Text(
+                statusText,
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
-            ),
-        ],
-      ),
+              if (subtitle != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    subtitle,
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

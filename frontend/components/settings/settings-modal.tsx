@@ -15,6 +15,9 @@ interface Settings {
   num_ctx: number;
   max_turns: number;
   tool_cache_size: number;
+  wake_word_enabled: boolean;
+  wake_word_threshold: number;
+  wake_word_timeout: number;
 }
 
 interface SettingsModalProps {
@@ -32,6 +35,9 @@ const DEFAULT_SETTINGS: Settings = {
   num_ctx: 8192,
   max_turns: 20,
   tool_cache_size: 3,
+  wake_word_enabled: false,
+  wake_word_threshold: 0.5,
+  wake_word_timeout: 3.0,
 };
 
 const DEFAULT_PROMPT = `# Voice Assistant
@@ -47,7 +53,7 @@ Always prefer using tools to answer questions when possible.
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [promptContent, setPromptContent] = useState('');
-  const [_customPromptExists, setCustomPromptExists] = useState(false);
+  const [, setCustomPromptExists] = useState(false);
   const [voices, setVoices] = useState<string[]>([]);
   const [models, setModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -347,9 +353,78 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               </div>
 
+              {/* Wake Word Section */}
+              <div className="border-input dark:border-muted space-y-3 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">Server-Side Wake Word</label>
+                    <p className="text-muted-foreground text-xs">
+                      Say &quot;Hey Jarvis&quot; to activate (requires restart)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.wake_word_enabled}
+                    onClick={() =>
+                      setSettings({ ...settings, wake_word_enabled: !settings.wake_word_enabled })
+                    }
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:ring-2 focus:ring-offset-2 focus:outline-none ${
+                      settings.wake_word_enabled ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        settings.wake_word_enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {settings.wake_word_enabled && (
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="space-y-1">
+                      <label className="text-muted-foreground text-xs">Detection Threshold</label>
+                      <input
+                        type="number"
+                        min="0.1"
+                        max="1.0"
+                        step="0.1"
+                        value={settings.wake_word_threshold}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            wake_word_threshold: parseFloat(e.target.value) || 0.5,
+                          })
+                        }
+                        className="border-input bg-background w-full rounded-md border px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-muted-foreground text-xs">Silence Timeout (s)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        step="0.5"
+                        value={settings.wake_word_timeout}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            wake_word_timeout: parseFloat(e.target.value) || 3.0,
+                          })
+                        }
+                        className="border-input bg-background w-full rounded-md border px-2 py-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Note about session restart */}
               <p className="text-muted-foreground text-xs">
-                Note: Model, context size, and prompt changes take effect on next session.
+                Note: Model, context size, prompt, and wake word changes take effect on next
+                session.
               </p>
             </>
           )}

@@ -54,6 +54,7 @@ from caal.integrations import (
 )
 from caal.llm import ollama_llm_node, ToolDataCache
 from caal import session_registry
+from caal.stt import WakeWordGatedSTT
 
 # Configure logging (LiveKit CLI reconfigures root logger, so set our level explicitly)
 logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
@@ -67,6 +68,8 @@ logging.getLogger("openai._base_client").setLevel(logging.WARNING)
 logging.getLogger("mcp").setLevel(logging.WARNING)  # MCP client SSE/JSON-RPC spam
 logging.getLogger("livekit").setLevel(logging.WARNING)  # LiveKit internal logs
 logging.getLogger("livekit_api").setLevel(logging.WARNING)  # Rust bridge logs
+logging.getLogger("livekit.agents.voice").setLevel(logging.WARNING)  # Suppress segment sync warnings
+logging.getLogger("livekit.plugins.openai.tts").setLevel(logging.WARNING)  # Suppress "no request_id" spam
 logging.getLogger("caal").setLevel(logging.INFO)  # Our package - INFO level
 
 # =============================================================================
@@ -238,13 +241,91 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     logger.info(f"  MCP: {list(mcp_servers.keys()) or 'None'}")
     logger.info("=" * 60)
 
+    # Build STT - optionally wrapped with wake word detection
+    base_stt = openai.STT(
+        base_url=f"{SPEACHES_URL}/v1",
+        api_key="not-needed",  # Speaches doesn't require auth
+        model=WHISPER_MODEL,
+    )
+
+    # Load wake word settings
+    all_settings = settings_module.load_settings()
+    wake_word_enabled = all_settings.get("wake_word_enabled", False)
+
+    # Session reference for wake word callback (set after session creation)
+    _session_ref: AgentSession | None = None
+
+    if wake_word_enabled:
+        import json
+        import random
+
+        wake_word_model = all_settings.get("wake_word_model", "models/hey_jarvis.onnx")
+        wake_word_threshold = all_settings.get("wake_word_threshold", 0.5)
+        wake_word_timeout = all_settings.get("wake_word_timeout", 3.0)
+        wake_greetings = all_settings.get("wake_greetings", ["Hey, what's up?"])
+
+        async def on_wake_detected():
+            """Play wake greeting directly via TTS, bypassing agent turn-taking."""
+            nonlocal _session_ref
+            if _session_ref is None:
+                logger.warning("Wake detected but session not ready yet")
+                return
+
+            try:
+                # Pick a random greeting
+                greeting = random.choice(wake_greetings)
+                logger.info(f"Wake word detected, playing greeting: {greeting}")
+
+                # Get TTS and audio output from session
+                tts = _session_ref.tts
+                audio_output = _session_ref.output.audio
+
+                # Synthesize and push audio frames directly (bypasses turn-taking)
+                audio_stream = tts.synthesize(greeting)
+                async for event in audio_stream:
+                    if hasattr(event, "frame") and event.frame:
+                        await audio_output.capture_frame(event.frame)
+
+                # Flush to complete the audio segment
+                audio_output.flush()
+
+            except Exception as e:
+                logger.warning(f"Failed to play wake greeting: {e}")
+
+        async def on_state_changed(state):
+            """Publish wake word state to connected clients."""
+            payload = json.dumps({
+                "type": "wakeword_state",
+                "state": state.value,
+            })
+            try:
+                await ctx.room.local_participant.publish_data(
+                    payload.encode("utf-8"),
+                    reliable=True,
+                    topic="wakeword_state",
+                )
+                logger.debug(f"Published wake word state: {state.value}")
+            except Exception as e:
+                logger.warning(f"Failed to publish wake word state: {e}")
+
+        stt_instance = WakeWordGatedSTT(
+            inner_stt=base_stt,
+            model_path=wake_word_model,
+            threshold=wake_word_threshold,
+            silence_timeout=wake_word_timeout,
+            on_wake_detected=on_wake_detected,
+            on_state_changed=on_state_changed,
+        )
+        logger.info(f"  Wake word: ENABLED (model={wake_word_model}, threshold={wake_word_threshold})")
+    else:
+        stt_instance = base_stt
+        logger.info("  Wake word: disabled")
+
     # Create session with Speaches STT and Kokoro TTS (both OpenAI-compatible)
+    logger.info(f"  STT instance type: {type(stt_instance).__name__}")
+    logger.info(f"  STT capabilities: streaming={stt_instance.capabilities.streaming}")
     session = AgentSession(
-        stt=openai.STT(
-            base_url=f"{SPEACHES_URL}/v1",
-            api_key="not-needed",  # Speaches doesn't require auth
-            model=WHISPER_MODEL,
-        ),
+        stt=stt_instance,
         llm=ollama_llm,
         tts=openai.TTS(
             base_url=f"{KOKORO_URL}/v1",
@@ -253,7 +334,12 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             voice=runtime["tts_voice"],
         ),
         vad=silero.VAD.load(),
+        allow_interruptions=False,  # Prevent background noise from interrupting agent
     )
+    logger.info(f"  Session STT: {type(session.stt).__name__}")
+
+    # Set session reference for wake word callback
+    _session_ref = session
 
     # ==========================================================================
     # Round-trip latency tracking
@@ -274,6 +360,10 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             latency_ms = (time.perf_counter() - _transcription_time) * 1000
             logger.info(f"ROUND-TRIP LATENCY: {latency_ms:.0f}ms (LLM + TTS)")
             _transcription_time = None
+
+        # Notify wake word STT of agent state for silence timer management
+        if isinstance(stt_instance, WakeWordGatedSTT):
+            stt_instance.set_agent_busy(ev.new_state in ("thinking", "speaking"))
 
     async def _publish_tool_status(
         tool_used: bool,

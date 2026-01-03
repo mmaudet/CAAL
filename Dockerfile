@@ -15,6 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for fast dependency management
@@ -51,6 +52,15 @@ COPY --from=deps /app/.venv /app/.venv
 COPY --chown=agent:agent src/ ./src/
 COPY --chown=agent:agent voice_agent.py ./
 COPY --chown=agent:agent prompt/ ./prompt/
+COPY --chown=agent:agent models/ ./models/
+COPY --chown=agent:agent settings.default.json mcp_servers.default.json ./
+COPY --chown=agent:agent entrypoint.sh ./
+
+# Copy OpenWakeWord resource models to the package location
+# These are required for the melspectrogram and embedding preprocessors
+RUN mkdir -p /app/.venv/lib/python3.11/site-packages/openwakeword/resources/models && \
+    cp /app/models/melspectrogram.onnx /app/models/embedding_model.onnx \
+    /app/.venv/lib/python3.11/site-packages/openwakeword/resources/models/
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH"
@@ -60,8 +70,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Pre-download Silero VAD model (optional, reduces first-run delay)
 # RUN python -c "from livekit.plugins import silero; silero.VAD.load()"
 
-# Switch to non-root user
-USER agent
+# Use entrypoint to create config files from defaults if missing
+# Runs as root initially to set up config, then drops to agent user
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default command - start mode for production
 # Override with 'dev' for development

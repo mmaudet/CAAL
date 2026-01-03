@@ -47,8 +47,8 @@ docs
 
 # Local configuration (use Docker env vars instead)
 
-# Models directory (mount as volume)
-models
+# Models directory - now bundled in image for wake word detection
+# models
 
 # Memory database (mount as volume)
 *.db

@@ -5,13 +5,12 @@ import { Track } from 'livekit-client';
 import { useChat, useRemoteParticipants } from '@livekit/components-react';
 import { ChatTextIcon, PhoneDisconnectIcon } from '@phosphor-icons/react/dist/ssr';
 import { ReloadToolsButton } from '@/components/livekit/agent-control-bar/reload-tools-button';
+import { ServerWakeWordIndicator } from '@/components/livekit/agent-control-bar/server-wake-word-indicator';
 import { ToolStatusIndicator } from '@/components/livekit/agent-control-bar/tool-status-indicator';
 import { TrackToggle } from '@/components/livekit/agent-control-bar/track-toggle';
-import { WakeWordToggle } from '@/components/livekit/agent-control-bar/wake-word-toggle';
 import { Button } from '@/components/livekit/button';
 import { Toggle } from '@/components/livekit/toggle';
 import { SettingsButton } from '@/components/settings/settings-button';
-import { useWakeWordMicControl } from '@/hooks/useWakeWordMicControl';
 import { cn } from '@/lib/utils';
 import { ChatInput } from './chat-input';
 import { UseInputControlsProps, useInputControls } from './hooks/use-input-controls';
@@ -60,9 +59,6 @@ export function AgentControlBar({
     handleMicrophoneDeviceSelectError,
     handleCameraDeviceSelectError,
   } = useInputControls({ onDeviceError, saveUserChoices });
-
-  // Integrate wake word detection with mic control
-  useWakeWordMicControl({ micToggle: microphoneToggle });
 
   const handleSendMessage = async (message: string) => {
     await send(message);
@@ -121,8 +117,8 @@ export function AgentControlBar({
             />
           )}
 
-          {/* Wake Word Toggle - "Hey Cal" detection */}
-          <WakeWordToggle size="icon" variant="secondary" />
+          {/* Wake Word State Indicator (server-side OpenWakeWord) */}
+          <ServerWakeWordIndicator />
 
           {/* Toggle Camera */}
           {visibleControls.camera && (

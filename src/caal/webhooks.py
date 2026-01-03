@@ -4,16 +4,19 @@ This module provides HTTP endpoints that allow external systems (like n8n)
 and the frontend to trigger actions on the running voice agent.
 
 Endpoints:
-    POST /announce      - Make the agent speak a message
-    POST /reload-tools  - Refresh MCP tool cache and optionally announce
-    POST /wake          - Handle wake word detection (greet user)
-    GET  /health        - Health check
-    GET  /settings      - Get current settings
-    POST /settings      - Update settings
-    GET  /prompt        - Get current prompt content
-    POST /prompt        - Save custom prompt
-    GET  /voices        - List available TTS voices
-    GET  /models        - List available LLM models
+    POST /announce           - Make the agent speak a message
+    POST /reload-tools       - Refresh MCP tool cache and optionally announce
+    POST /wake               - Handle wake word detection (greet user)
+    GET  /health             - Health check
+    GET  /settings           - Get current settings
+    POST /settings           - Update settings
+    GET  /prompt             - Get current prompt content
+    POST /prompt             - Save custom prompt
+    GET  /voices             - List available TTS voices
+    GET  /models             - List available LLM models
+    GET  /wake-word/status   - Get wake word detection status
+    POST /wake-word/enable   - Enable server-side wake word detection
+    POST /wake-word/disable  - Disable server-side wake word detection
 
 Usage:
     # Start in a background thread from voice_agent.py:
@@ -212,9 +215,12 @@ async def reload_tools(req: ReloadToolsRequest) -> ReloadToolsResponse:
 async def wake(req: WakeRequest) -> WakeResponse:
     """Handle wake word detection - greet the user.
 
-    This endpoint is called by the frontend when the wake word ("Hey Cal")
-    is detected. The agent responds with a brief greeting to acknowledge
-    the user and indicate readiness.
+    This endpoint is primarily for:
+    - Client-side wake word detection (Picovoice - deprecated)
+    - Manual testing via curl
+
+    Server-side wake word detection (OpenWakeWord) handles greetings
+    directly in voice_agent.py for lower latency.
 
     Args:
         req: WakeRequest with room_name
@@ -238,10 +244,22 @@ async def wake(req: WakeRequest) -> WakeResponse:
     session, _agent = result
     logger.info(f"Wake word detected in room {req.room_name}")
 
-    # Say a random greeting directly (bypasses LLM for instant response)
+    # Get greeting
     greetings = settings_module.get_setting("wake_greetings")
     greeting = random.choice(greetings)
-    await session.say(greeting)
+
+    # Call TTS directly and push to audio output, bypassing agent turn-taking
+    tts = session.tts
+    audio_output = session.output.audio
+    audio_stream = tts.synthesize(greeting)
+
+    # Push audio frames directly to the audio output
+    async for event in audio_stream:
+        if hasattr(event, 'frame') and event.frame:
+            await audio_output.capture_frame(event.frame)
+
+    # Flush to complete the segment
+    audio_output.flush()
 
     return WakeResponse(status="greeted", room_name=req.room_name)
 
@@ -462,3 +480,88 @@ async def get_models() -> ModelsResponse:
         logger.warning(f"Failed to fetch models from Ollama: {e}")
         # Return empty list on failure
         return ModelsResponse(models=[])
+
+
+# =============================================================================
+# Wake Word Control Endpoints
+# =============================================================================
+
+
+class WakeWordStatusResponse(BaseModel):
+    """Response body for /wake-word/status endpoint."""
+
+    enabled: bool
+    model: str
+    threshold: float
+    timeout: float
+
+
+class WakeWordUpdateRequest(BaseModel):
+    """Request body for wake word enable/disable."""
+
+    enabled: bool
+
+
+@app.get("/wake-word/status", response_model=WakeWordStatusResponse)
+async def get_wake_word_status() -> WakeWordStatusResponse:
+    """Get current wake word detection status.
+
+    Returns:
+        WakeWordStatusResponse with enabled state and configuration
+    """
+    settings = settings_module.load_settings()
+
+    return WakeWordStatusResponse(
+        enabled=settings.get("wake_word_enabled", False),
+        model=settings.get("wake_word_model", "models/hey_jarvis.onnx"),
+        threshold=settings.get("wake_word_threshold", 0.5),
+        timeout=settings.get("wake_word_timeout", 3.0),
+    )
+
+
+@app.post("/wake-word/enable", response_model=WakeWordStatusResponse)
+async def enable_wake_word() -> WakeWordStatusResponse:
+    """Enable wake word detection.
+
+    Note: This updates the setting but requires agent restart to take effect.
+
+    Returns:
+        WakeWordStatusResponse with updated configuration
+    """
+    current = settings_module.load_settings()
+    current["wake_word_enabled"] = True
+    settings_module.save_settings(current)
+
+    settings = settings_module.reload_settings()
+    logger.info("Wake word detection enabled (requires agent restart)")
+
+    return WakeWordStatusResponse(
+        enabled=True,
+        model=settings.get("wake_word_model", "models/hey_jarvis.onnx"),
+        threshold=settings.get("wake_word_threshold", 0.5),
+        timeout=settings.get("wake_word_timeout", 3.0),
+    )
+
+
+@app.post("/wake-word/disable", response_model=WakeWordStatusResponse)
+async def disable_wake_word() -> WakeWordStatusResponse:
+    """Disable wake word detection.
+
+    Note: This updates the setting but requires agent restart to take effect.
+
+    Returns:
+        WakeWordStatusResponse with updated configuration
+    """
+    current = settings_module.load_settings()
+    current["wake_word_enabled"] = False
+    settings_module.save_settings(current)
+
+    settings = settings_module.reload_settings()
+    logger.info("Wake word detection disabled (requires agent restart)")
+
+    return WakeWordStatusResponse(
+        enabled=False,
+        model=settings.get("wake_word_model", "models/hey_jarvis.onnx"),
+        threshold=settings.get("wake_word_threshold", 0.5),
+        timeout=settings.get("wake_word_timeout", 3.0),
+    )
