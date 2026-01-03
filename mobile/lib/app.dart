@@ -4,6 +4,7 @@ import 'package:livekit_components/livekit_components.dart' as components;
 import 'package:provider/provider.dart';
 
 import 'controllers/app_ctrl.dart';
+import 'controllers/audio_filter_ctrl.dart';
 import 'controllers/tool_status_ctrl.dart';
 import 'controllers/wake_word_state_ctrl.dart';
 import 'screens/agent_screen.dart';
@@ -126,6 +127,7 @@ class _CaalAppState extends State<CaalApp> {
               room: appCtrl.room,
               serverUrl: widget.configService.serverUrl,
             );
+            final audioFilterCtrl = AudioFilterCtrl(room: appCtrl.room);
 
             return MultiProvider(
               key: ValueKey(appCtrl.sessionKey),
@@ -134,6 +136,7 @@ class _CaalAppState extends State<CaalApp> {
                 ChangeNotifierProvider<components.RoomContext>.value(value: appCtrl.roomContext),
                 ChangeNotifierProvider<ToolStatusCtrl>.value(value: toolStatusCtrl),
                 ChangeNotifierProvider<WakeWordStateCtrl>.value(value: wakeWordStateCtrl),
+                ChangeNotifierProvider<AudioFilterCtrl>.value(value: audioFilterCtrl),
               ],
               child: components.SessionContext(
                 session: appCtrl.session,

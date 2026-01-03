@@ -2,13 +2,9 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { TokenSource } from 'livekit-client';
-import {
-  RoomAudioRenderer,
-  SessionProvider,
-  StartAudio,
-  useSession,
-} from '@livekit/components-react';
+import { SessionProvider, StartAudio, useSession } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
+import { AgentAudioRenderer } from '@/components/app/agent-audio-renderer';
 import { ViewController } from '@/components/app/view-controller';
 import { WakeWordProvider } from '@/components/app/wake-word-provider';
 import { Toaster } from '@/components/livekit/toaster';
@@ -99,7 +95,7 @@ export function App({ appConfig }: AppProps) {
           <ViewController appConfig={appConfig} />
         </main>
         <StartAudio label="Start Audio" />
-        <RoomAudioRenderer />
+        <AgentAudioRenderer />
         <Toaster />
       </WakeWordProvider>
     </SessionProvider>
