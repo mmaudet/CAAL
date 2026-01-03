@@ -1,0 +1,31 @@
+tts-1:
+  # English voices from LibriTTS
+  alloy:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 79
+  echo:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 134
+  fable:
+    model: voices/en_GB-northern_english_male-medium.onnx
+    speaker:
+  onyx:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 159
+  nova:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 107
+  shimmer:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 163
+  # French voices from Piper
+  fr_FR-siwis-medium:
+    model: voices/fr_FR-siwis-medium.onnx
+    speaker:
+  fr_FR-tom-medium:
+    model: voices/fr_FR-tom-medium.onnx
+    speaker:
+tts-1-hd:
+  alloy:
+    model: xtts
+    speaker: voices/alloy.wav

@@ -159,11 +159,12 @@ services:
       - "${PIPER_PORT:-8001}:8000"
     volumes:
       - piper-voices:/app/voices
+      - ./piper-config:/app/config
     environment:
       - TTS_HOME=/app/voices
       - DEFAULT_TTS_MODEL=piper
     # Disable XTTS (we only need Piper for French)
-    command: ["--xtts_device", "none"]
+    # XTTS disabled via TTS_HOME containing only Piper voices
     restart: unless-stopped
     networks:
       - caal-network
