@@ -661,11 +661,3 @@ docker run --rm livekit/livekit-server generate-keys
 | Auth errors | Credentials match across all config files |
 | Agent not processing | `docker compose logs -f agent`, STT/TTS health |
 | Ollama not reachable from agent | Verify `ss -tlnp \| grep 11434` shows `*:11434`, not `127.0.0.1:11434` |
-
----
-
-## Related
-
-- [CAAL GitHub Repository](https://github.com/CoreWorxLab/CAAL)
-- [LiveKit Documentation](https://docs.livekit.io/agents/)
-- [Tailscale Documentation](https://tailscale.com/kb/)
