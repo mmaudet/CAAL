@@ -313,10 +313,17 @@ class PromptUpdateRequest(BaseModel):
     content: str
 
 
+class Voice(BaseModel):
+    """Voice info with language tag."""
+    id: str
+    language: str  # "en" or "fr"
+    name: str | None = None
+
+
 class VoicesResponse(BaseModel):
     """Response body for /voices endpoint."""
 
-    voices: list[str]
+    voices: list[Voice]
 
 
 class ModelsResponse(BaseModel):
@@ -425,13 +432,17 @@ async def save_prompt(req: PromptUpdateRequest) -> PromptResponse:
 
 @app.get("/voices", response_model=VoicesResponse)
 async def get_voices() -> VoicesResponse:
-    """Get available TTS voices from Kokoro.
+    """Get available TTS voices from Kokoro (English) and Piper (French).
 
     Returns:
-        VoicesResponse with list of voice IDs
+        VoicesResponse with list of voice objects including language tags
     """
     kokoro_url = os.getenv("KOKORO_URL", "http://kokoro:8880")
+    piper_url = os.getenv("PIPER_URL", "http://piper:8000")
 
+    voices: list[Voice] = []
+
+    # Fetch English voices from Kokoro
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -442,16 +453,38 @@ async def get_voices() -> VoicesResponse:
             data = response.json()
 
             # Kokoro returns {"voices": [{"id": "...", ...}, ...]}
-            voices = [v.get("id") or v.get("voice_id") for v in data.get("voices", [])]
-            voices = [v for v in voices if v]  # Filter None values
-
-            return VoicesResponse(voices=voices)
+            for v in data.get("voices", []):
+                voice_id = v.get("id") or v.get("voice_id")
+                if voice_id:
+                    voices.append(Voice(id=voice_id, language="en", name=v.get("name")))
     except Exception as e:
         logger.warning(f"Failed to fetch voices from Kokoro: {e}")
-        # Return default voices as fallback
-        return VoicesResponse(
-            voices=["af_heart", "af_bella", "af_sarah", "am_adam", "am_puck"]
-        )
+        # Add default English voices as fallback
+        for v in ["af_heart", "af_bella", "af_sarah", "am_adam", "am_puck"]:
+            voices.append(Voice(id=v, language="en"))
+
+    # Fetch French voices from Piper (openedai-speech)
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{piper_url}/v1/audio/voices",
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # openedai-speech returns {"voices": [{"id": "...", ...}, ...]}
+            for v in data.get("voices", []):
+                voice_id = v.get("id") or v.get("voice_id")
+                if voice_id and voice_id.startswith("fr_"):
+                    voices.append(Voice(id=voice_id, language="fr", name=v.get("name")))
+    except Exception as e:
+        logger.debug(f"Piper not available or no French voices: {e}")
+        # Add default French voices as fallback (will work when Piper is deployed)
+        for v in ["fr_FR-siwis-medium", "fr_FR-tom-medium"]:
+            voices.append(Voice(id=v, language="fr"))
+
+    return VoicesResponse(voices=voices)
 
 
 @app.get("/models", response_model=ModelsResponse)

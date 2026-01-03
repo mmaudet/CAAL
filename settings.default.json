@@ -11,11 +11,21 @@
     "Yo!",
     "What's up?"
   ],
+  "wake_greetings_fr": [
+    "Oui?",
+    "Je t'ecoute!",
+    "Comment puis-je t'aider?",
+    "Qu'y a-t-il?",
+    "Salut!",
+    "A ton service!"
+  ],
   "temperature": 0.7,
   "model": "ministral-3:8b",
   "num_ctx": 8192,
   "max_turns": 20,
   "tool_cache_size": 3,
+  "language": "en",
+  "stt_language": "auto",
   "wake_word_enabled": false,
   "wake_word_model": "models/hey_cal.onnx",
   "wake_word_threshold": 0.5,

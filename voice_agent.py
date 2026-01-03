@@ -80,7 +80,9 @@ logging.getLogger("caal").setLevel(logging.INFO)  # Our package - INFO level
 SPEACHES_URL = os.getenv("SPEACHES_URL", "http://speaches:8000")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "Systran/faster-whisper-small")
 KOKORO_URL = os.getenv("KOKORO_URL", "http://kokoro:8880")
+PIPER_URL = os.getenv("PIPER_URL", "http://piper:8000")
 TTS_MODEL = os.getenv("TTS_MODEL", "kokoro")  # "kokoro" for Kokoro-FastAPI, "prince-canuma/Kokoro-82M" for mlx-audio
+PIPER_MODEL = os.getenv("PIPER_MODEL", "piper")  # Model name for openedai-speech
 OLLAMA_THINK = os.getenv("OLLAMA_THINK", "false").lower() == "true"
 TIMEZONE_ID = os.getenv("TIMEZONE", "America/Los_Angeles")
 TIMEZONE_DISPLAY = os.getenv("TIMEZONE_DISPLAY", "Pacific Time")
@@ -104,7 +106,33 @@ def get_runtime_settings() -> dict:
         "num_ctx": settings.get("num_ctx", int(os.getenv("OLLAMA_NUM_CTX", "8192"))),
         "max_turns": settings.get("max_turns", int(os.getenv("OLLAMA_MAX_TURNS", "20"))),
         "tool_cache_size": settings.get("tool_cache_size", int(os.getenv("TOOL_CACHE_SIZE", "3"))),
+        # Language settings
+        "language": settings.get("language", "en"),
+        "stt_language": settings.get("stt_language", "auto"),
     }
+
+
+def create_tts_for_voice(voice: str, language: str) -> openai.TTS:
+    """Create TTS instance based on voice and language.
+    
+    Routes to Kokoro for English voices, Piper for French voices.
+    """
+    # French voices go to Piper
+    if language == "fr" or voice.startswith("fr_"):
+        return openai.TTS(
+            base_url=f"{PIPER_URL}/v1",
+            api_key="not-needed",
+            model=PIPER_MODEL,
+            voice=voice,
+        )
+    # English voices go to Kokoro
+    else:
+        return openai.TTS(
+            base_url=f"{KOKORO_URL}/v1",
+            api_key="not-needed",
+            model=TTS_MODEL,
+            voice=voice,
+        )
 
 
 def load_prompt() -> str:
@@ -242,10 +270,12 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     logger.info("=" * 60)
 
     # Build STT - optionally wrapped with wake word detection
+    stt_language = runtime.get("stt_language", "auto")
     base_stt = openai.STT(
         base_url=f"{SPEACHES_URL}/v1",
         api_key="not-needed",  # Speaches doesn't require auth
         model=WHISPER_MODEL,
+        language=stt_language if stt_language != "auto" else None,
     )
 
     # Load wake word settings
@@ -262,7 +292,12 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         wake_word_model = all_settings.get("wake_word_model", "models/hey_jarvis.onnx")
         wake_word_threshold = all_settings.get("wake_word_threshold", 0.5)
         wake_word_timeout = all_settings.get("wake_word_timeout", 3.0)
-        wake_greetings = all_settings.get("wake_greetings", ["Hey, what's up?"])
+        # Select greetings based on language
+        current_language = runtime.get("language", "en")
+        if current_language == "fr":
+            wake_greetings = all_settings.get("wake_greetings_fr", ["Oui?", "Je t'ecoute!"])
+        else:
+            wake_greetings = all_settings.get("wake_greetings", ["Hey, what's up?"])
 
         async def on_wake_detected():
             """Play wake greeting directly via TTS, bypassing agent turn-taking."""
@@ -327,12 +362,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     session = AgentSession(
         stt=stt_instance,
         llm=ollama_llm,
-        tts=openai.TTS(
-            base_url=f"{KOKORO_URL}/v1",
-            api_key="not-needed",  # Kokoro doesn't require auth
-            model=TTS_MODEL,
-            voice=runtime["tts_voice"],
-        ),
+        tts=create_tts_for_voice(runtime["tts_voice"], runtime.get("language", "en")),
         vad=silero.VAD.load(),
         allow_interruptions=False,  # Prevent background noise from interrupting agent
     )
