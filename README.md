@@ -211,7 +211,7 @@ Quick start:
 | `KOKORO_URL` | Kokoro TTS server URL | `http://localhost:8880` |
 | `WHISPER_MODEL` | Faster-Whisper model | `Systran/faster-whisper-medium` |
 | `TTS_VOICE` | Kokoro voice name | `am_puck` |
-| `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_HOST` | Ollama server URL | `http://host.docker.internal:11434` |
 | `OLLAMA_MODEL` | LLM model name | `ministral-3:8b` |
 | `OLLAMA_THINK` | Enable thinking mode (slower) | `false` |
 | `PORCUPINE_ACCESS_KEY` | Picovoice key for wake word | - |
@@ -399,10 +399,23 @@ curl http://YOUR_OLLAMA_IP:11434/api/tags
 
 ### Ollama Connection Failed
 
-**Symptom**: Agent logs show "error connecting to Ollama"
+**Symptom**: Agent logs show "error connecting to Ollama" or "model not found"
+
+**1. Check OLLAMA_HOST in `.env`:**
+
+When running in Docker, use `host.docker.internal` to reach Ollama on the host machine:
+```bash
+OLLAMA_HOST=http://host.docker.internal:11434
+```
+
+If Ollama is on a different machine, use its IP address:
+```bash
+OLLAMA_HOST=http://192.168.1.50:11434
+```
+
+**2. Ensure Ollama binds to network:**
 
 Ollama defaults to localhost only. Start it with network binding:
-
 ```bash
 OLLAMA_HOST=0.0.0.0 ollama serve
 ```
@@ -410,6 +423,12 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 Or set in your shell profile:
 ```bash
 export OLLAMA_HOST=0.0.0.0
+```
+
+**3. Verify the model is available:**
+```bash
+ollama list  # Check installed models
+ollama pull ministral-3:14b  # Pull the model if missing
 ```
 
 ### Frontend Connection Timeout
@@ -449,7 +468,10 @@ docker compose logs -f speaches kokoro
 # Generate new API keys
 docker run --rm livekit/livekit-server generate-keys
 
-# Update .env and livekit.yaml with generated values
+# Update these files with the generated API key and secret:
+# 1. .env (LIVEKIT_API_KEY and LIVEKIT_API_SECRET)
+# 2. livekit.yaml (keys section)
+# 3. livekit-tailscale.yaml.template (keys section, for HTTPS mode)
 ```
 
 ### HTTPS
