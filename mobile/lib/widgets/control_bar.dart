@@ -1,20 +1,19 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_sficon/flutter_sficon.dart' as sf;
-import 'package:livekit_client/livekit_client.dart' as sdk;
 import 'package:livekit_components/livekit_components.dart' as components;
 import 'package:provider/provider.dart';
 
 import '../controllers/app_ctrl.dart' show AppCtrl, AgentScreenState;
 import '../controllers/tool_status_ctrl.dart';
-import '../exts.dart';
+import '../controllers/wake_word_state_ctrl.dart';
 import '../ui/color_pallette.dart' show LKColorPaletteLight;
 import 'floating_glass.dart';
+import 'settings_modal.dart';
 
-const _wakeWordBlue = Color(0xFF3B82F6);
-const _followUpWindow = Duration(seconds: 4);
+const _wakeWordBlue = Color(0xFF3B82F6);  // Sleeping - waiting for wake word
+const _wakeWordGreen = Color(0xFF22C55E); // Listening - active conversation
 
 class ControlBar extends StatelessWidget {
   const ControlBar({super.key});
@@ -101,6 +100,15 @@ class ControlBar extends StatelessWidget {
               ),
               // Wake word toggle button with auto-mute logic
               const _WakeWordButton(),
+              // Settings button
+              Flexible(
+                flex: 1,
+                fit: FlexFit.tight,
+                child: FloatingGlassButton(
+                  sfIcon: sf.SFIcons.sf_gearshape_fill,
+                  onTap: () => SettingsModal.show(ctx),
+                ),
+              ),
               Flexible(
                 flex: 1,
                 fit: FlexFit.tight,
@@ -209,123 +217,38 @@ class _ToolEntry extends StatelessWidget {
   }
 }
 
-/// Wake word button with auto-mute logic.
-/// Tracks agent state and auto-mutes mic after agent finishes speaking.
-class _WakeWordButton extends StatefulWidget {
+/// Wake word indicator showing server-side wake word state.
+/// Blue = sleeping (waiting for wake word), Green = active (processing conversation).
+class _WakeWordButton extends StatelessWidget {
   const _WakeWordButton();
 
   @override
-  State<_WakeWordButton> createState() => _WakeWordButtonState();
-}
-
-class _WakeWordButtonState extends State<_WakeWordButton> {
-  Timer? _autoMuteTimer;
-  sdk.AgentState? _lastAgentState;
-  bool _wasAgentActive = false;
-  bool _hasUserSpoken = false;
-
-  @override
-  void dispose() {
-    _autoMuteTimer?.cancel();
-    super.dispose();
-  }
-
-  void _onAgentStateChanged(sdk.AgentState? newState, components.MediaDeviceContext mediaDeviceCtx) {
-    final wakeWord = context.read<AppCtrl>().wakeWordService;
-    if (!wakeWord.isEnabled) {
-      _wasAgentActive = false;
-      _hasUserSpoken = false;
-      _autoMuteTimer?.cancel();
-      return;
-    }
-
-    // When agent starts thinking (user finished speaking), mute immediately
-    // This prevents background noise from interrupting CAAL's response
-    if (newState == sdk.AgentState.thinking && mediaDeviceCtx.microphoneOpened) {
-      _wasAgentActive = true;
-      _hasUserSpoken = true;
-      debugPrint('[WakeWordButton] User finished speaking, muting mic');
-      mediaDeviceCtx.disableMicrophone();
-      _autoMuteTimer?.cancel();
-    }
-
-    // Track when agent is speaking
-    if (newState == sdk.AgentState.speaking) {
-      _wasAgentActive = true;
-    }
-
-    // When agent finishes speaking and returns to listening, open follow-up window
-    if (newState == sdk.AgentState.listening && _lastAgentState == sdk.AgentState.speaking) {
-      _autoMuteTimer?.cancel();
-
-      // Unmute for follow-up window
-      debugPrint('[WakeWordButton] CAAL done speaking, opening ${_followUpWindow.inSeconds}s follow-up window');
-      mediaDeviceCtx.enableMicrophone();
-
-      _autoMuteTimer = Timer(_followUpWindow, () {
-        if (wakeWord.isEnabled && mediaDeviceCtx.microphoneOpened) {
-          debugPrint('[WakeWordButton] No follow-up, muting mic');
-          mediaDeviceCtx.disableMicrophone();
-        }
-      });
-    }
-
-    _lastAgentState = newState;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return components.MediaDeviceContextBuilder(
-      builder: (context, roomCtx, mediaDeviceCtx) {
-        final wakeWord = context.read<AppCtrl>().wakeWordService;
+    return Consumer<WakeWordStateCtrl>(
+      builder: (context, wakeWordStateCtrl, _) {
+        final serverState = wakeWordStateCtrl.state;
+        final isEnabled = wakeWordStateCtrl.isEnabled;
 
-        // Set the unmute callback so wake word detection can enable mic
-        wakeWord.onUnmuteMic = () => mediaDeviceCtx.enableMicrophone();
-
-        // Listen to agent state changes for auto-mute
-        final agentParticipant = roomCtx.agentParticipant;
-        final agentState = agentParticipant?.agentState;
-
-        // Check for state change
-        if (agentState != _lastAgentState) {
-          // Use post-frame callback to avoid setState during build
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _onAgentStateChanged(agentState, mediaDeviceCtx);
-          });
+        // Determine icon color based on state
+        // Grey if disabled, blue if sleeping, green if active
+        final Color iconColor;
+        if (!isEnabled) {
+          iconColor = Colors.grey;
+        } else if (serverState == WakeWordState.active) {
+          iconColor = _wakeWordGreen;
+        } else {
+          iconColor = _wakeWordBlue;
         }
 
-        // Check if wake word is configured (has access key)
-        final appCtrl = context.read<AppCtrl>();
-        final isConfigured = appCtrl.porcupineAccessKey.isNotEmpty;
-
-        return ListenableBuilder(
-          listenable: wakeWord,
-          builder: (context, _) {
-            final isEnabled = wakeWord.isEnabled;
-            return Flexible(
-              flex: 1,
-              fit: FlexFit.tight,
-              child: FloatingGlassButton(
-                isActive: isEnabled,
-                iconColor: isEnabled ? _wakeWordBlue : (isConfigured ? null : Colors.grey),
-                sfIcon: sf.SFIcons.sf_ear_fill,
-                onTap: isConfigured
-                    ? () async {
-                        final enabled = await wakeWord.toggle();
-                        if (enabled) {
-                          // When wake word enabled, mute mic
-                          mediaDeviceCtx.disableMicrophone();
-                        } else {
-                          // When disabled, cancel any pending auto-mute
-                          _autoMuteTimer?.cancel();
-                          _hasUserSpoken = false;
-                          _wasAgentActive = false;
-                        }
-                      }
-                    : null,
-              ),
-            );
-          },
+        return Flexible(
+          flex: 1,
+          fit: FlexFit.tight,
+          child: FloatingGlassButton(
+            isActive: false,
+            iconColor: iconColor,
+            sfIcon: sf.SFIcons.sf_ear_fill,
+            onTap: () {}, // Empty callback to avoid opacity fade
+          ),
         );
       },
     );

@@ -8,7 +8,6 @@ import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../services/caal_token_source.dart';
-import '../services/wake_word_service.dart';
 
 enum AppScreenState { welcome, agent }
 
@@ -18,14 +17,10 @@ class AppCtrl extends ChangeNotifier {
   static const uuid = Uuid();
   static final _logger = Logger('AppCtrl');
 
-  // Configuration (mutable to allow updates from settings)
+  // Configuration
   String _serverUrl;
-  String _porcupineAccessKey;
-  String _wakeWordPath;
 
   String get serverUrl => _serverUrl;
-  String get porcupineAccessKey => _porcupineAccessKey;
-  String get wakeWordPath => _wakeWordPath;
 
   // States
   AppScreenState appScreenState = AppScreenState.welcome;
@@ -46,10 +41,6 @@ class AppCtrl extends ChangeNotifier {
   sdk.Room get room => _room;
   components.RoomContext get roomContext => _roomContext;
   sdk.Session get session => _session;
-
-  // Wake word detection
-  late WakeWordService wakeWordService;
-  bool get isWakeWordEnabled => wakeWordService.isEnabled;
 
   sdk.Session _createSession() {
     return sdk.Session.fromConfigurableTokenSource(
@@ -114,11 +105,7 @@ class AppCtrl extends ChangeNotifier {
 
   AppCtrl({
     required String serverUrl,
-    String porcupineAccessKey = '',
-    String wakeWordPath = '',
-  })  : _serverUrl = serverUrl,
-        _porcupineAccessKey = porcupineAccessKey,
-        _wakeWordPath = wakeWordPath {
+  })  : _serverUrl = serverUrl {
     final format = DateFormat('HH:mm:ss');
     Logger.root.level = Level.FINE;
     Logger.root.onRecord.listen((record) {
@@ -134,53 +121,19 @@ class AppCtrl extends ChangeNotifier {
     });
 
     session.addListener(_handleSessionChange);
-
-    // Initialize wake word service (not started until user enables it)
-    wakeWordService = WakeWordService(
-      onWakeWordDetected: _onWakeWordDetected,
-      serverUrl: serverUrl,
-      porcupineAccessKey: porcupineAccessKey,
-      customWakeWordPath: wakeWordPath,
-    );
   }
 
-  /// Update config and recreate wake word service with new values.
+  /// Update server URL config.
   /// Called when user changes settings.
   void updateConfig({
     required String serverUrl,
-    required String porcupineAccessKey,
-    required String wakeWordPath,
   }) {
-    // Only recreate if values actually changed
-    if (serverUrl == _serverUrl &&
-        porcupineAccessKey == _porcupineAccessKey &&
-        wakeWordPath == _wakeWordPath) {
+    if (serverUrl == _serverUrl) {
       return;
     }
 
-    _logger.info('Updating config - serverUrl: $serverUrl, porcupineKey: ${porcupineAccessKey.isNotEmpty ? "(set)" : "(empty)"}, wakeWordPath: ${wakeWordPath.isNotEmpty ? wakeWordPath : "(default)"}');
-
+    _logger.info('Updating config - serverUrl: $serverUrl');
     _serverUrl = serverUrl;
-    _porcupineAccessKey = porcupineAccessKey;
-    _wakeWordPath = wakeWordPath;
-
-    // Recreate wake word service with new key/path
-    wakeWordService.dispose();
-    wakeWordService = WakeWordService(
-      onWakeWordDetected: _onWakeWordDetected,
-      serverUrl: serverUrl,
-      porcupineAccessKey: porcupineAccessKey,
-      customWakeWordPath: wakeWordPath,
-    );
-
-    notifyListeners();
-  }
-
-  /// Called when wake word is detected - unmutes the microphone.
-  void _onWakeWordDetected() {
-    _logger.info('Wake word detected, unmuting mic...');
-    // The mic unmuting happens in the control bar via MediaDeviceContext
-    // We just notify listeners so UI can react
     notifyListeners();
   }
 
@@ -188,7 +141,6 @@ class AppCtrl extends ChangeNotifier {
     if (_hasCleanedUp) return;
     _hasCleanedUp = true;
 
-    await wakeWordService.dispose();
     _session.removeListener(_handleSessionChange);
     await _session.dispose();
     await _room.dispose();

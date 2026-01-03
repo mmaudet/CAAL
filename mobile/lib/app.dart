@@ -36,8 +36,6 @@ class _CaalAppState extends State<CaalApp> {
     if (widget.configService.isConfigured) {
       _appCtrl = AppCtrl(
         serverUrl: widget.configService.serverUrl,
-        porcupineAccessKey: widget.configService.porcupineAccessKey,
-        wakeWordPath: widget.configService.wakeWordPath,
       );
     }
   }
@@ -46,8 +44,6 @@ class _CaalAppState extends State<CaalApp> {
     setState(() {
       _appCtrl = AppCtrl(
         serverUrl: widget.configService.serverUrl,
-        porcupineAccessKey: widget.configService.porcupineAccessKey,
-        wakeWordPath: widget.configService.wakeWordPath,
       );
     });
   }
@@ -126,7 +122,10 @@ class _CaalAppState extends State<CaalApp> {
         child: Consumer<AppCtrl>(
           builder: (ctx, appCtrl, _) {
             final toolStatusCtrl = ToolStatusCtrl(room: appCtrl.room);
-            final wakeWordStateCtrl = WakeWordStateCtrl(room: appCtrl.room);
+            final wakeWordStateCtrl = WakeWordStateCtrl(
+              room: appCtrl.room,
+              serverUrl: widget.configService.serverUrl,
+            );
 
             return MultiProvider(
               key: ValueKey(appCtrl.sessionKey),

@@ -8,17 +8,38 @@ export type WakeWordState = 'listening' | 'active' | null;
 
 /**
  * Hook to track server-side wake word detection state.
- * Listens for data packets with topic "wakeword_state" from the backend.
+ * Fetches initial state from API, then listens for data packets.
  *
  * States:
- * - 'listening': Agent is waiting for wake word
- * - 'active': Wake word detected, agent is processing conversation
- * - null: Wake word detection is disabled or state unknown
+ * - 'listening': Agent is waiting for wake word (blue)
+ * - 'active': Wake word detected, agent is processing conversation (green)
+ * - null: Wake word detection is disabled (grey)
  */
 export function useWakeWordState() {
   const room = useRoomContext();
   const [state, setState] = useState<WakeWordState>(null);
 
+  // Fetch initial state from API
+  useEffect(() => {
+    const fetchInitialState = async () => {
+      try {
+        const response = await fetch('/api/wake-word/status');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.enabled) {
+            // If enabled, default to 'listening' until we get a state update
+            setState('listening');
+          }
+        }
+      } catch (error) {
+        console.error('[useWakeWordState] Failed to fetch initial state:', error);
+      }
+    };
+
+    fetchInitialState();
+  }, []);
+
+  // Listen for state updates via data packets
   useEffect(() => {
     if (!room) return;
 

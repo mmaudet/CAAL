@@ -22,8 +22,6 @@ class WelcomeScreen extends StatelessWidget {
             // Recreate AppCtrl with new config values
             appCtrl.updateConfig(
               serverUrl: configService.serverUrl,
-              porcupineAccessKey: configService.porcupineAccessKey,
-              wakeWordPath: configService.wakeWordPath,
             );
           },
         ),

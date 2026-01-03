@@ -17,15 +17,11 @@ void main() async {
   // Try to load .env as fallback for development (optional)
   try {
     await dotenv.load(fileName: '.env');
-    // If .env exists and config isn't set, migrate values
+    // If .env exists and config isn't set, migrate server URL
     if (!configService.isConfigured) {
       final envUrl = dotenv.env['CAAL_SERVER_URL']?.replaceAll('"', '');
       if (envUrl != null && envUrl.isNotEmpty) {
         await configService.setServerUrl(envUrl);
-      }
-      final envKey = dotenv.env['PORCUPINE_ACCESS_KEY']?.replaceAll('"', '');
-      if (envKey != null && envKey.isNotEmpty) {
-        await configService.setPorcupineAccessKey(envKey);
       }
     }
   } catch (_) {

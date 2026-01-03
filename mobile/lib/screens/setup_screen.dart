@@ -1,15 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../services/config_service.dart';
 
-/// Setup screen for configuring the app on first launch.
-/// Allows users to enter server URL and optional Porcupine access key.
+/// Setup screen for initial server URL configuration.
+/// Full agent settings are available via the gear icon in the control bar
+/// during an active session.
 class SetupScreen extends StatefulWidget {
   final ConfigService configService;
   final VoidCallback onConfigured;
@@ -27,23 +22,17 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _serverUrlController = TextEditingController();
-  final _porcupineKeyController = TextEditingController();
   bool _isSaving = false;
-  String? _selectedFileName;
-  File? _selectedFile;
 
   @override
   void initState() {
     super.initState();
-    // Pre-populate with existing values if editing
     _serverUrlController.text = widget.configService.serverUrl;
-    _porcupineKeyController.text = widget.configService.porcupineAccessKey;
   }
 
   @override
   void dispose() {
     _serverUrlController.dispose();
-    _porcupineKeyController.dispose();
     super.dispose();
   }
 
@@ -53,17 +42,7 @@ class _SetupScreenState extends State<SetupScreen> {
     setState(() => _isSaving = true);
 
     try {
-      await widget.configService.setServerUrl(_serverUrlController.text);
-      await widget.configService.setPorcupineAccessKey(_porcupineKeyController.text);
-
-      // Copy .ppn file to app storage if selected
-      if (_selectedFile != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final destPath = p.join(appDir.path, 'wakeword.ppn');
-        await _selectedFile!.copy(destPath);
-        await widget.configService.setWakeWordPath(destPath);
-      }
-
+      await widget.configService.setServerUrl(_serverUrlController.text.trim());
       widget.onConfigured();
     } finally {
       if (mounted) {
@@ -72,44 +51,22 @@ class _SetupScreenState extends State<SetupScreen> {
     }
   }
 
-  Future<void> _pickWakeWordFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final fileName = result.files.single.name;
-
-      // Validate .ppn extension
-      if (!fileName.toLowerCase().endsWith('.ppn')) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a .ppn file')),
-          );
-        }
-        return;
-      }
-
-      setState(() {
-        _selectedFile = file;
-        _selectedFileName = fileName;
-      });
-    }
-  }
-
-  Future<void> _openPicovoiceConsole() async {
-    final uri = Uri.parse('https://console.picovoice.ai/');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isFirstSetup = !widget.configService.isConfigured;
+
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
+      appBar: isFirstSetup
+          ? null
+          : AppBar(
+              backgroundColor: const Color(0xFF1A1A1A),
+              leading: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: const Text('Connection', style: TextStyle(color: Colors.white)),
+            ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -120,36 +77,30 @@ class _SetupScreenState extends State<SetupScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header
-                  const Icon(
-                    Icons.graphic_eq,
-                    size: 80,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'CAAL Setup',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  if (isFirstSetup) ...[
+                    const Icon(Icons.graphic_eq, size: 80, color: Colors.white),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'CAAL Setup',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Configure your connection settings',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Enter your server address to get started',
+                      style: TextStyle(fontSize: 16, color: Colors.white70),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
+                    const SizedBox(height: 40),
+                  ],
 
                   // Server URL field
                   const Text(
-                    'Server URL *',
+                    'Server URL',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -164,6 +115,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'http://192.168.1.100:3000',
+                      hintStyle: const TextStyle(color: Colors.white38),
                       filled: true,
                       fillColor: const Color(0xFF2A2A2A),
                       border: OutlineInputBorder(
@@ -189,149 +141,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 6),
                   const Text(
                     'Your CAAL server address',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white54,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Wake Word Configuration section header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF232323),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.hearing,
-                              size: 20,
-                              color: const Color(0xFF3B82F6),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Wake Word (Optional)',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Enable hands-free activation with a custom wake word',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white54,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Porcupine Access Key field
-                        const Text(
-                          'Picovoice Access Key',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _porcupineKeyController,
-                          autocorrect: false,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Enter your Picovoice access key',
-                            filled: true,
-                            fillColor: const Color(0xFF2A2A2A),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Wake Word File section
-                        const Text(
-                          'Wake Word File (.ppn)',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A2A),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  _selectedFileName ??
-                                      (widget.configService.wakeWordPath.isNotEmpty
-                                          ? p.basename(widget.configService.wakeWordPath)
-                                          : 'No file selected'),
-                                  style: const TextStyle(color: Colors.white70),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            TextButton(
-                              onPressed: _pickWakeWordFile,
-                              style: TextButton.styleFrom(
-                                backgroundColor: const Color(0xFF3B82F6),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text('Browse'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _openPicovoiceConsole,
-                          child: const Text(
-                            'Get a free key and train a wake word at console.picovoice.ai',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF3B82F6),
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.white54),
                   ),
                   const SizedBox(height: 40),
 
@@ -357,12 +167,21 @@ class _SetupScreenState extends State<SetupScreen> {
                                 valueColor: AlwaysStoppedAnimation(Color(0xFF171717)),
                               ),
                             )
-                          : const Text(
-                              'SAVE',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                          : Text(
+                              isFirstSetup ? 'CONNECT' : 'SAVE',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
+
+                  if (isFirstSetup) ...[
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Full agent settings are available during an active session via the gear icon.',
+                      style: TextStyle(fontSize: 12, color: Colors.white38),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ],
               ),
             ),
