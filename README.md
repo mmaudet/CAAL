@@ -4,15 +4,15 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LiveKit](https://img.shields.io/badge/LiveKit-Agents-purple.svg)](https://docs.livekit.io/agents/)
 
+> **Local voice assistant that learns new abilities via auto-discovered n8n workflows exposed as tools via MCP**
+
+Built on [LiveKit Agents](https://docs.livekit.io/agents/) with fully local STT/TTS/LLM using [Speaches](https://github.com/speaches-ai/speaches), [Kokoro](https://github.com/remsky/Kokoro-FastAPI), and [Ollama](https://ollama.ai/).
+
 <picture>
   <source srcset="frontend/.github/assets/readme-hero-dark.webp" media="(prefers-color-scheme: dark)">
   <source srcset="frontend/.github/assets/readme-hero-light.webp" media="(prefers-color-scheme: light)">
   <img src="frontend/.github/assets/readme-hero-light.webp" alt="CAAL Voice Assistant">
 </picture>
-
-> **Local voice assistant that learns new abilities via auto-discovered n8n workflows exposed as tools via MCP**
-
-Built on [LiveKit Agents](https://docs.livekit.io/agents/) with fully local STT/TTS/LLM using [Speaches](https://github.com/speaches-ai/speaches), [Kokoro](https://github.com/remsky/Kokoro-FastAPI), and [Ollama](https://ollama.ai/).
 
 ## Features
 
