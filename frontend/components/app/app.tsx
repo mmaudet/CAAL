@@ -8,7 +8,7 @@ import { AgentAudioRenderer } from '@/components/app/agent-audio-renderer';
 import { ViewController } from '@/components/app/view-controller';
 import { WakeWordProvider } from '@/components/app/wake-word-provider';
 import { Toaster } from '@/components/livekit/toaster';
-import { useAgentErrors } from '@/hooks/useAgentErrors';
+// import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
 import { getSandboxTokenSource } from '@/lib/utils';
 
@@ -19,7 +19,7 @@ const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
 function AppSetup() {
   useDebugMode({ enabled: IN_DEVELOPMENT });
-  useAgentErrors();
+  // useAgentErrors(); // Disabled for multi-device support - timeout breaks second device
 
   return null;
 }
