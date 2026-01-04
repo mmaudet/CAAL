@@ -11,6 +11,7 @@ import { TrackToggle } from '@/components/livekit/agent-control-bar/track-toggle
 import { Button } from '@/components/livekit/button';
 import { Toggle } from '@/components/livekit/toggle';
 import { SettingsButton } from '@/components/settings/settings-button';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ChatInput } from './chat-input';
 import { UseInputControlsProps, useInputControls } from './hooks/use-input-controls';
@@ -137,27 +138,31 @@ export function AgentControlBar({
 
           {/* Toggle Screen Share */}
           {visibleControls.screenShare && (
-            <TrackToggle
-              size="icon"
-              variant="secondary"
-              aria-label="Toggle screen share"
-              source={Track.Source.ScreenShare}
-              pressed={screenShareToggle.enabled}
-              disabled={screenShareToggle.pending}
-              onPressedChange={screenShareToggle.toggle}
-            />
+            <Tooltip content="Screen share">
+              <TrackToggle
+                size="icon"
+                variant="secondary"
+                aria-label="Toggle screen share"
+                source={Track.Source.ScreenShare}
+                pressed={screenShareToggle.enabled}
+                disabled={screenShareToggle.pending}
+                onPressedChange={screenShareToggle.toggle}
+              />
+            </Tooltip>
           )}
 
           {/* Toggle Transcript */}
-          <Toggle
-            size="icon"
-            variant="secondary"
-            aria-label="Toggle transcript"
-            pressed={chatOpen}
-            onPressedChange={handleToggleTranscript}
-          >
-            <ChatTextIcon weight="bold" />
-          </Toggle>
+          <Tooltip content="Transcript">
+            <Toggle
+              size="icon"
+              variant="secondary"
+              aria-label="Toggle transcript"
+              pressed={chatOpen}
+              onPressedChange={handleToggleTranscript}
+            >
+              <ChatTextIcon weight="bold" />
+            </Toggle>
+          </Tooltip>
 
           {/* Settings Button */}
           <SettingsButton />
@@ -171,16 +176,18 @@ export function AgentControlBar({
 
         {/* Disconnect */}
         {visibleControls.leave && (
-          <Button
-            variant="destructive"
-            onClick={onDisconnect}
-            disabled={!isConnected}
-            className="font-mono"
-          >
-            <PhoneDisconnectIcon weight="bold" />
-            <span className="hidden md:inline">END CALL</span>
-            <span className="inline md:hidden">END</span>
-          </Button>
+          <Tooltip content="End session">
+            <Button
+              variant="destructive"
+              onClick={onDisconnect}
+              disabled={!isConnected}
+              className="font-mono"
+            >
+              <PhoneDisconnectIcon weight="bold" />
+              <span className="hidden md:inline">END CALL</span>
+              <span className="inline md:hidden">END</span>
+            </Button>
+          </Tooltip>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Ear, EarSlash } from '@phosphor-icons/react/dist/ssr';
+import { Tooltip } from '@/components/ui/tooltip';
 import { useWakeWordState } from '@/hooks/useWakeWordState';
 import { cn } from '@/lib/utils';
 
@@ -31,23 +32,24 @@ export function ServerWakeWordIndicator({ className }: { className?: string }) {
       : 'Listening - speak now';
 
   return (
-    <div
-      className={cn(
-        // Match Toggle component styling (size="icon", variant="secondary")
-        'inline-flex size-9 items-center justify-center rounded-full',
-        'text-sm font-medium',
-        'cursor-default transition-[color,box-shadow,background-color] outline-none',
-        // Background based on state
-        isActive
-          ? 'bg-green-500/20 text-green-700 dark:text-green-300'
-          : isSleeping
-            ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300'
-            : 'bg-muted text-muted-foreground',
-        className
-      )}
-      title={title}
-    >
-      <IconComponent weight="bold" className="size-4 shrink-0" />
-    </div>
+    <Tooltip content={title}>
+      <div
+        className={cn(
+          // Match Toggle component styling (size="icon", variant="secondary")
+          'inline-flex size-9 items-center justify-center rounded-full',
+          'text-sm font-medium',
+          'cursor-default transition-[color,box-shadow,background-color] outline-none',
+          // Background based on state
+          isActive
+            ? 'bg-green-500/20 text-green-700 dark:text-green-300'
+            : isSleeping
+              ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300'
+              : 'bg-muted text-muted-foreground',
+          className
+        )}
+      >
+        <IconComponent weight="bold" className="size-4 shrink-0" />
+      </div>
+    </Tooltip>
   );
 }

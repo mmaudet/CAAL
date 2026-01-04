@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { WrenchIcon } from '@phosphor-icons/react/dist/ssr';
+import { Tooltip } from '@/components/ui/tooltip';
 import { useToolStatus } from '@/hooks/useToolStatus';
 import { cn } from '@/lib/utils';
 
@@ -48,35 +49,44 @@ export function ToolStatusIndicator() {
     }
   };
 
+  // Tooltip content based on status
+  const tooltipContent = !hasStatus
+    ? 'Tool status'
+    : toolUsed
+      ? `Tool: ${toolNames.join(', ')}`
+      : 'No tool used';
+
   return (
     <div ref={containerRef} className="relative flex items-center gap-1.5">
       {/* Wrench icon button */}
-      <button
-        type="button"
-        onClick={handleClick}
-        className={cn(
-          'flex h-10 w-10 items-center justify-center rounded-full',
-          'bg-secondary/50 transition-colors duration-200',
-          hasStatus && toolUsed && 'cursor-pointer bg-green-500/10 hover:bg-green-500/20',
-          !hasStatus && 'cursor-default'
-        )}
-        aria-label={
-          !hasStatus
-            ? 'Tool status: waiting for response'
-            : toolUsed
-              ? `Tool used: ${toolNames.join(', ')}. Click for details.`
-              : 'No tool called - response generated from model'
-        }
-      >
-        <WrenchIcon
-          weight="bold"
+      <Tooltip content={tooltipContent}>
+        <button
+          type="button"
+          onClick={handleClick}
           className={cn(
-            'h-5 w-5 transition-colors duration-200',
-            'text-muted-foreground/50',
-            hasStatus && toolUsed && 'text-green-500'
+            'flex h-10 w-10 items-center justify-center rounded-full',
+            'bg-secondary/50 transition-colors duration-200',
+            hasStatus && toolUsed && 'cursor-pointer bg-green-500/10 hover:bg-green-500/20',
+            !hasStatus && 'cursor-default'
           )}
-        />
-      </button>
+          aria-label={
+            !hasStatus
+              ? 'Tool status: waiting for response'
+              : toolUsed
+                ? `Tool used: ${toolNames.join(', ')}. Click for details.`
+                : 'No tool called - response generated from model'
+          }
+        >
+          <WrenchIcon
+            weight="bold"
+            className={cn(
+              'h-5 w-5 transition-colors duration-200',
+              'text-muted-foreground/50',
+              hasStatus && toolUsed && 'text-green-500'
+            )}
+          />
+        </button>
+      </Tooltip>
 
       {/* Tool name label - only shown when a tool was actually used */}
       {hasStatus && toolUsed && displayName && (

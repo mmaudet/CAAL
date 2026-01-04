@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/livekit/select';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type DeviceSelectProps = React.ComponentProps<typeof SelectTrigger> & {
@@ -18,6 +19,7 @@ type DeviceSelectProps = React.ComponentProps<typeof SelectTrigger> & {
   variant?: 'default' | 'small';
   track?: LocalAudioTrack | LocalVideoTrack | undefined;
   requestPermissions?: boolean;
+  tooltip?: string;
   onMediaDeviceError?: (error: Error) => void;
   onDeviceListChange?: (devices: MediaDeviceInfo[]) => void;
   onActiveDeviceChange?: (deviceId: string) => void;
@@ -43,6 +45,7 @@ export function TrackDeviceSelect({
   track,
   size = 'default',
   requestPermissions = false,
+  tooltip,
   onMediaDeviceError,
   onDeviceListChange,
   onActiveDeviceChange,
@@ -82,6 +85,17 @@ export function TrackDeviceSelect({
     return null;
   }
 
+  // Default tooltip based on device kind
+  const tooltipContent = tooltip || (kind === 'audioinput' ? 'Select microphone' : 'Select camera');
+
+  const trigger = (
+    <SelectTrigger className={cn(selectVariants({ size }), props.className)}>
+      {size !== 'sm' && (
+        <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
+      )}
+    </SelectTrigger>
+  );
+
   return (
     <Select
       open={open}
@@ -89,11 +103,7 @@ export function TrackDeviceSelect({
       onOpenChange={setOpen}
       onValueChange={handleActiveDeviceChange}
     >
-      <SelectTrigger className={cn(selectVariants({ size }), props.className)}>
-        {size !== 'sm' && (
-          <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
-        )}
-      </SelectTrigger>
+      <Tooltip content={tooltipContent}>{trigger}</Tooltip>
       <SelectContent>
         {filteredDevices.map((device) => (
           <SelectItem key={device.deviceId} value={device.deviceId} className="font-mono text-xs">
