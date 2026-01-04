@@ -82,7 +82,7 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "Systran/faster-whisper-small")
 KOKORO_URL = os.getenv("KOKORO_URL", "http://kokoro:8880")
 PIPER_URL = os.getenv("PIPER_URL", "http://piper:8000")
 TTS_MODEL = os.getenv("TTS_MODEL", "kokoro")  # "kokoro" for Kokoro-FastAPI, "prince-canuma/Kokoro-82M" for mlx-audio
-PIPER_MODEL = os.getenv("PIPER_MODEL", "piper")  # Model name for openedai-speech
+PIPER_MODEL = os.getenv("PIPER_MODEL", "tts-1")  # Model name for openedai-speech (must be tts-1 or tts-1-hd)
 OLLAMA_THINK = os.getenv("OLLAMA_THINK", "false").lower() == "true"
 TIMEZONE_ID = os.getenv("TIMEZONE", "America/Los_Angeles")
 TIMEZONE_DISPLAY = os.getenv("TIMEZONE_DISPLAY", "Pacific Time")
@@ -209,10 +209,7 @@ class VoiceAssistant(WebSearchTools, Agent):
 async def entrypoint(ctx: agents.JobContext) -> None:
     """Main entrypoint for the voice agent."""
 
-    # Start webhook server in the same event loop (first job only)
-    global _webhook_server_task
-    if _webhook_server_task is None:
-        _webhook_server_task = asyncio.create_task(start_webhook_server())
+    # Note: Webhook server now runs in main process thread, not here
 
     logger.debug(f"Joining room: {ctx.room.name}")
     await ctx.connect()
@@ -262,7 +259,8 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     logger.info("STARTING VOICE AGENT")
     logger.info("=" * 60)
     logger.info(f"  STT: {SPEACHES_URL} ({WHISPER_MODEL})")
-    logger.info(f"  TTS: {KOKORO_URL} ({runtime['tts_voice']})")
+    tts_url = PIPER_URL if (runtime.get("language") == "fr" or runtime["tts_voice"].startswith("fr_")) else KOKORO_URL
+    logger.info(f"  TTS: {tts_url} ({runtime['tts_voice']})")
     logger.info(
         f"  LLM: Ollama ({runtime['model']}, think={OLLAMA_THINK}, num_ctx={runtime['num_ctx']})"
     )
@@ -443,17 +441,64 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
     # Create event to wait for session close
     close_event = asyncio.Event()
+    session_closed = False  # Flag to prevent actions after session ends
 
     @session.on("close")
     def on_session_close(ev) -> None:
+        nonlocal session_closed
+        session_closed = True
         logger.info(f"Session closed: {ev.reason}")
         close_event.set()
 
+    # Track greeted participants to avoid re-greeting
+    greeted_participants: set[str] = set()
+
+    # Get language for greeting instructions
+    agent_language = runtime.get("language", "en")
+
+    async def greet_participant(participant_identity: str) -> None:
+        """Send greeting to a participant."""
+        if session_closed:
+            return  # Ignore if session already ended
+        if participant_identity in greeted_participants:
+            return
+        greeted_participants.add(participant_identity)
+
+        # Use French or English greeting instruction based on language setting
+        if agent_language == "fr":
+            greeting_instruction = "Salue brièvement l'utilisateur et fais-lui savoir que tu es prêt à l'aider."
+        else:
+            greeting_instruction = "Greet the user briefly and let them know you're ready to help."
+
+        try:
+            logger.info(f"Generating greeting for {participant_identity} (language: {agent_language})...")
+            await asyncio.wait_for(
+                session.generate_reply(
+                    instructions=greeting_instruction
+                ),
+                timeout=30.0
+            )
+            logger.info(f"Greeting sent successfully to {participant_identity}")
+        except asyncio.TimeoutError:
+            logger.error(f"GREETING TIMEOUT for {participant_identity}")
+        except Exception as e:
+            logger.error(f"GREETING ERROR for {participant_identity}: {e}")
+
+    # Listen for new participants joining
+    @ctx.room.on("participant_connected")
+    def on_participant_connected(participant) -> None:
+        if session_closed:
+            return  # Session ended, ignore new participants
+        if participant.identity.startswith("agent-"):
+            return  # Don't greet other agents
+        logger.info(f"New participant connected: {participant.identity}")
+        asyncio.create_task(greet_participant(participant.identity))
+
     try:
-        # Send initial greeting
-        await session.generate_reply(
-            instructions="Greet the user briefly and let them know you're ready to help."
-        )
+        # Greet existing participants
+        for participant in ctx.room.remote_participants.values():
+            if not participant.identity.startswith("agent-"):
+                await greet_participant(participant.identity)
 
         logger.info("Agent ready - listening for speech...")
 
@@ -463,6 +508,11 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     finally:
         # Unregister session on cleanup
         session_registry.unregister(ctx.room.name)
+        logger.info("Agent session ended")
+
+        # Note: Don't kill webhook server - it's shared across sessions
+        # The process will exit naturally when entrypoint returns
+        pass
 
 
 # =============================================================================
@@ -532,14 +582,68 @@ WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8889"))
 _webhook_server_task: asyncio.Task | None = None
 
 
+def is_port_in_use(port: int) -> bool:
+    """Check if a port is already in use."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("0.0.0.0", port))
+            return False
+        except OSError:
+            return True
+
+
 async def start_webhook_server():
     """Start FastAPI webhook server in the current event loop.
 
     This runs the webhook server in the same event loop as the LiveKit agent,
     avoiding cross-thread async issues that cause 200x slower MCP calls.
+
+    If port is in use, retries periodically until it becomes available.
     """
     import uvicorn
     from caal.webhooks import app
+
+    # Retry loop - keep trying until port becomes available
+    while True:
+        if is_port_in_use(WEBHOOK_PORT):
+            logger.debug(f"Webhook server port {WEBHOOK_PORT} in use, retrying in 5s...")
+            await asyncio.sleep(5)
+            continue
+
+        try:
+            config = uvicorn.Config(
+                app,
+                host="0.0.0.0",
+                port=WEBHOOK_PORT,
+                log_level="warning",
+            )
+            server = uvicorn.Server(config)
+            logger.info(f"Starting webhook server on port {WEBHOOK_PORT}")
+            await server.serve()
+            break  # Server stopped normally
+        except OSError as e:
+            if "address already in use" in str(e).lower():
+                logger.debug(f"Port {WEBHOOK_PORT} became busy, retrying in 5s...")
+                await asyncio.sleep(5)
+            else:
+                logger.error(f"Webhook server error: {e}")
+                break
+
+
+# =============================================================================
+# Standalone Webhook Server (runs in background thread)
+# =============================================================================
+
+def run_webhook_server_sync():
+    """Run webhook server in a separate thread (blocking)."""
+    import uvicorn
+    from caal.webhooks import app
+
+    # Wait for port to be available
+    import time
+    while is_port_in_use(WEBHOOK_PORT):
+        time.sleep(2)
 
     config = uvicorn.Config(
         app,
@@ -548,8 +652,16 @@ async def start_webhook_server():
         log_level="warning",
     )
     server = uvicorn.Server(config)
-    logger.debug(f"Starting webhook server on port {WEBHOOK_PORT}")
-    await server.serve()
+    logger.info(f"Starting standalone webhook server on port {WEBHOOK_PORT}")
+    server.run()
+
+
+def start_webhook_server_thread():
+    """Start webhook server in a daemon thread."""
+    import threading
+    thread = threading.Thread(target=run_webhook_server_sync, daemon=True)
+    thread.start()
+    logger.info("Webhook server thread started")
 
 
 # =============================================================================
@@ -557,6 +669,9 @@ async def start_webhook_server():
 # =============================================================================
 
 if __name__ == "__main__":
+    # Start webhook server in background thread (available even without active sessions)
+    start_webhook_server_thread()
+
     # Preload models before starting worker
     preload_models()
 

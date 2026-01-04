@@ -3,8 +3,10 @@ import 'package:livekit_client/livekit_client.dart' as sdk;
 import 'package:provider/provider.dart';
 
 import '../controllers/app_ctrl.dart' as ctrl;
+import '../l10n/app_localizations.dart';
 import '../services/config_service.dart';
 import '../widgets/button.dart' as buttons;
+import '../widgets/language_selector.dart';
 import 'setup_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -30,88 +32,92 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext ctx) => Material(
-        child: Stack(
-          children: [
-            // Main content
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 36),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: 30,
-                  children: [
-                    // Audio waveform icon to match web frontend
-                    Icon(
-                      Icons.graphic_eq,
-                      size: 80,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Chat live with your voice AI agent',
-                      style: TextStyle(
-                        fontSize: 18,
+  Widget build(BuildContext ctx) => Consumer<AppLocalizations>(
+        builder: (ctx, l10n, _) => Material(
+          child: Stack(
+            children: [
+              // Main content
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 30,
+                    children: [
+                      // Audio waveform icon to match web frontend
+                      Icon(
+                        Icons.graphic_eq,
+                        size: 80,
                         color: Colors.white,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    // Agent listening indicator
-                    Consumer<sdk.Session>(
-                      builder: (ctx, session, child) => AnimatedOpacity(
-                        opacity: session.agent.canListen ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 300),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.mic,
-                                color: Colors.green,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'CAAL is listening',
-                                style: TextStyle(
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.t('welcome.title'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      // Agent listening indicator
+                      Consumer<sdk.Session>(
+                        builder: (ctx, session, child) => AnimatedOpacity(
+                          opacity: session.agent.canListen ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.mic,
                                   color: Colors.green,
-                                  fontWeight: FontWeight.w500,
+                                  size: 18,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  l10n.t('welcome.listening'),
+                                  style: const TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Consumer2<ctrl.AppCtrl, sdk.Session>(
-                      builder: (ctx, appCtrl, session, child) {
-                        final isProgressing =
-                            appCtrl.isSessionStarting || session.connectionState != sdk.ConnectionState.disconnected;
-                        return buttons.Button(
-                          text: isProgressing ? 'Connecting' : 'Talk to CAAL',
-                          isProgressing: isProgressing,
-                          onPressed: () => appCtrl.connect(),
-                        );
-                      },
-                    ),
-                  ],
+                      Consumer2<ctrl.AppCtrl, sdk.Session>(
+                        builder: (ctx, appCtrl, session, child) {
+                          final isProgressing =
+                              appCtrl.isSessionStarting || session.connectionState != sdk.ConnectionState.disconnected;
+                          return buttons.Button(
+                            text: isProgressing ? l10n.t('welcome.connecting') : l10n.t('welcome.button'),
+                            isProgressing: isProgressing,
+                            onPressed: () => appCtrl.connect(),
+                          );
+                        },
+                      ),
+                      // Language selector
+                      const LanguageSelector(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Settings button in top right
-            Positioned(
-              top: 16,
-              right: 16,
-              child: SafeArea(
-                child: IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white54),
-                  onPressed: () => _openSettings(ctx),
-                  tooltip: 'Settings',
+              // Settings button in top right
+              Positioned(
+                top: 16,
+                right: 16,
+                child: SafeArea(
+                  child: IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.white54),
+                    onPressed: () => _openSettings(ctx),
+                    tooltip: l10n.t('controls.settings'),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
 }

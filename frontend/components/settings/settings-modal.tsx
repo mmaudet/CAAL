@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GearSix, X } from '@phosphor-icons/react/dist/ssr';
 import { Button } from '@/components/livekit/button';
+import { Locale, useTranslation } from '@/lib/i18n';
 
 interface Voice {
   id: string;
@@ -33,6 +34,7 @@ interface Settings {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onDisconnect?: () => void;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -64,7 +66,8 @@ You are a helpful, conversational voice assistant.
 Always prefer using tools to answer questions when possible.
 `;
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, onDisconnect }: SettingsModalProps) {
+  const { t, setLocale } = useTranslation();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [promptContent, setPromptContent] = useState('');
   const [, setCustomPromptExists] = useState(false);
@@ -74,11 +77,38 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(10);
+
+  // Helper to get cached settings from localStorage
+  const getCachedSettings = (): Settings | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem('caal-settings');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper to cache settings to localStorage
+  const cacheSettings = (s: Settings) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('caal-settings', JSON.stringify(s));
+    } catch {
+      // Ignore localStorage errors
+    }
+  };
 
   // Load settings on mount
   const loadSettings = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    // Load cached settings first as fallback
+    const cachedSettings = getCachedSettings();
 
     try {
       const [settingsRes, voicesRes, modelsRes, wakeWordModelsRes] = await Promise.all([
@@ -90,13 +120,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
       if (settingsRes.ok) {
         const data = await settingsRes.json();
-        setSettings(data.settings || DEFAULT_SETTINGS);
+        const loadedSettings = data.settings || DEFAULT_SETTINGS;
+        setSettings(loadedSettings);
+        cacheSettings(loadedSettings); // Cache for future use
         setPromptContent(data.prompt_content || DEFAULT_PROMPT);
         setCustomPromptExists(data.custom_prompt_exists || false);
+        // Sync UI language with backend language on load
+        if (loadedSettings.language) {
+          setLocale(loadedSettings.language as Locale);
+        }
       } else {
-        console.warn('Failed to load settings, using defaults');
-        setSettings(DEFAULT_SETTINGS);
+        console.warn('Failed to load settings from API, using cached or defaults');
+        const fallback = cachedSettings || DEFAULT_SETTINGS;
+        setSettings(fallback);
         setPromptContent(DEFAULT_PROMPT);
+        if (fallback.language) {
+          setLocale(fallback.language as Locale);
+        }
       }
 
       if (voicesRes.ok) {
@@ -116,13 +156,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('Error loading settings:', err);
       setError('Failed to load settings from server');
-      // Still show defaults even when API fails
-      setSettings(DEFAULT_SETTINGS);
+      // Use cached settings as fallback when API fails
+      const fallback = cachedSettings || DEFAULT_SETTINGS;
+      setSettings(fallback);
       setPromptContent(DEFAULT_PROMPT);
+      if (fallback.language) {
+        setLocale(fallback.language as Locale);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setLocale]);
 
   useEffect(() => {
     if (isOpen) {
@@ -131,8 +175,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }, [isOpen, loadSettings]);
 
   const handleSave = async () => {
+    // Show confirmation dialog before saving
+    setShowDisconnectConfirm(true);
+  };
+
+  const handleConfirmSave = async () => {
     setSaving(true);
     setError(null);
+    setShowDisconnectConfirm(false);
 
     try {
       // Save settings
@@ -145,6 +195,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       if (!settingsRes.ok) {
         throw new Error('Failed to save settings');
       }
+
+      // Cache settings locally for fallback
+      cacheSettings(settings);
 
       // Save prompt if it was edited and prompt is set to custom
       if (settings.prompt === 'custom') {
@@ -159,13 +212,43 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         }
       }
 
+      // Show countdown before disconnecting
+      setShowCountdown(true);
+      setSaving(false);
+
+      for (let i = 10; i >= 0; i--) {
+        setCountdownSeconds(i);
+
+        // Pre-warm TTS and LLM services during countdown
+        if (i === 8) {
+          fetch('/api/warmup', { method: 'POST' })
+            .then((res) => res.json())
+            .then((data) => console.log('[Settings] Warmup result:', data))
+            .catch((err) => console.warn('[Settings] Warmup failed:', err));
+        }
+
+        if (i > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Countdown finished - disconnect
+      setShowCountdown(false);
       onClose();
+      if (onDisconnect) {
+        onDisconnect();
+      }
     } catch (err) {
       console.error('Error saving settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
+      setShowCountdown(false);
       setSaving(false);
     }
+  };
+
+  const handleCancelSave = () => {
+    setShowDisconnectConfirm(false);
+    onClose(); // Fermer le modal et revenir à l'agent
   };
 
   const handlePromptChange = (value: string) => {
@@ -197,7 +280,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="border-input dark:border-muted flex shrink-0 items-center justify-between border-b p-4">
           <div className="flex items-center gap-2">
             <GearSix weight="bold" className="h-5 w-5" />
-            <h2 className="text-lg font-semibold">Settings</h2>
+            <h2 className="text-lg font-semibold">{t('settings.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -210,14 +293,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {/* Content - scrollable */}
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {loading ? (
-            <div className="text-muted-foreground py-8 text-center">Loading settings...</div>
+            <div className="text-muted-foreground py-8 text-center">{t('settings.loading')}</div>
           ) : (
             <>
               {error && <div className="rounded-md bg-red-500/10 p-3 text-red-500">{error}</div>}
 
               {/* Language Selection */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Language</label>
+                <label className="text-sm font-medium">{t('settings.language')}</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -233,6 +316,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           ? settings.tts_voice
                           : newVoices[0]?.id || 'am_puck',
                       });
+                      // Sync UI language with backend language
+                      setLocale('en' as Locale);
                     }}
                     className={`rounded-md px-4 py-1.5 text-sm ${
                       settings.language === 'en'
@@ -255,6 +340,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           ? settings.tts_voice
                           : newVoices[0]?.id || 'fr_FR-siwis-medium',
                       });
+                      // Sync UI language with backend language
+                      setLocale('fr' as Locale);
                     }}
                     className={`rounded-md px-4 py-1.5 text-sm ${
                       settings.language === 'fr'
@@ -272,7 +359,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* STT Language Hint */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Speech Recognition Language</label>
+                <label className="text-sm font-medium">{t('settings.sttLanguage')}</label>
                 <select
                   value={settings.stt_language}
                   onChange={(e) =>
@@ -283,9 +370,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   }
                   className="border-input bg-background w-full rounded-md border px-3 py-2"
                 >
-                  <option value="auto">Auto-detect</option>
-                  <option value="en">English only</option>
-                  <option value="fr">French only</option>
+                  <option value="auto">{t('settings.autoDetect')}</option>
+                  <option value="en">{t('settings.englishOnly')}</option>
+                  <option value="fr">{t('settings.frenchOnly')}</option>
                 </select>
                 <p className="text-muted-foreground text-xs">
                   Hint for speech-to-text. Auto works well for most cases.
@@ -294,7 +381,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* Agent Name */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Agent Name</label>
+                <label className="text-sm font-medium">{t('settings.agentName')}</label>
                 <input
                   type="text"
                   value={settings.agent_name}
@@ -305,7 +392,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* Voice (filtered by language) */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Voice</label>
+                <label className="text-sm font-medium">{t('settings.voice')}</label>
                 <select
                   value={settings.tts_voice}
                   onChange={(e) => setSettings({ ...settings, tts_voice: e.target.value })}
@@ -325,7 +412,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* Prompt Selection */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Prompt</label>
+                <label className="text-sm font-medium">{t('settings.prompt')}</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handlePromptChange('default')}
@@ -335,7 +422,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         : 'bg-muted hover:bg-muted/80'
                     }`}
                   >
-                    Default
+                    {t('settings.default')}
                   </button>
                   <button
                     onClick={() => handlePromptChange('custom')}
@@ -345,7 +432,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         : 'bg-muted hover:bg-muted/80'
                     }`}
                   >
-                    Custom
+                    {t('settings.custom')}
                   </button>
                 </div>
               </div>
@@ -390,7 +477,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* Model */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Model</label>
+                <label className="text-sm font-medium">{t('settings.model')}</label>
                 <select
                   value={settings.model}
                   onChange={(e) => setSettings({ ...settings, model: e.target.value })}
@@ -411,7 +498,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {/* Numeric Settings Row */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Temperature</label>
+                  <label className="text-sm font-medium">{t('settings.temperature')}</label>
                   <input
                     type="number"
                     min="0"
@@ -425,7 +512,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Context Size</label>
+                  <label className="text-sm font-medium">{t('settings.contextSize')}</label>
                   <input
                     type="number"
                     min="1024"
@@ -442,7 +529,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Max Turns</label>
+                  <label className="text-sm font-medium">{t('settings.maxTurns')}</label>
                   <input
                     type="number"
                     min="1"
@@ -455,7 +542,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Tool Cache</label>
+                  <label className="text-sm font-medium">{t('settings.toolCache')}</label>
                   <input
                     type="number"
                     min="0"
@@ -473,9 +560,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div className="border-input dark:border-muted space-y-3 rounded-md border p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="text-sm font-medium">Server-Side Wake Word</label>
+                    <label className="text-sm font-medium">{t('settings.wakeWord')}</label>
                     <p className="text-muted-foreground text-xs">
-                      Activate with wake phrase (requires restart)
+                      {t('settings.wakeWordHint', { wakeWord: 'Hey Cal' })}
                     </p>
                   </div>
                   <button
@@ -501,7 +588,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <>
                     {/* Wake Word Model Selector */}
                     <div className="space-y-1 pt-2">
-                      <label className="text-muted-foreground text-xs">Wake Word Model</label>
+                      <label className="text-muted-foreground text-xs">
+                        {t('settings.wakeWordModel')}
+                      </label>
                       <select
                         value={settings.wake_word_model}
                         onChange={(e) =>
@@ -533,7 +622,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="text-muted-foreground text-xs">Detection Threshold</label>
+                        <label className="text-muted-foreground text-xs">
+                          {t('settings.threshold')}
+                        </label>
                         <input
                           type="number"
                           min="0.1"
@@ -550,7 +641,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-muted-foreground text-xs">Silence Timeout (s)</label>
+                        <label className="text-muted-foreground text-xs">
+                          {t('settings.timeout')}
+                        </label>
                         <input
                           type="number"
                           min="1"
@@ -572,10 +665,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
 
               {/* Note about session restart */}
-              <p className="text-muted-foreground text-xs">
-                Note: Language, model, context size, prompt, and wake word changes take effect on
-                next session.
-              </p>
+              <p className="text-muted-foreground text-xs">{t('settings.modelNote')}</p>
             </>
           )}
         </div>
@@ -583,12 +673,48 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {/* Footer - fixed */}
         <div className="border-input dark:border-muted flex shrink-0 justify-end gap-2 border-t p-4">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancel
+            {t('settings.cancel')}
           </Button>
           <Button variant="primary" onClick={handleSave} disabled={loading || saving}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('settings.saving') : t('settings.save')}
           </Button>
         </div>
+
+        {/* Disconnect Confirmation Dialog */}
+        {showDisconnectConfirm && (
+          <div className="bg-background bg-opacity-95 absolute inset-0 flex items-center justify-center rounded-lg">
+            <div className="mx-4 max-w-sm space-y-4 text-center">
+              <h3 className="text-lg font-semibold">{t('settings.disconnectConfirmTitle')}</h3>
+              <p className="text-muted-foreground text-sm">
+                {t('settings.disconnectConfirmMessage')}
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button variant="secondary" onClick={handleCancelSave}>
+                  {t('settings.no')}
+                </Button>
+                <Button variant="destructive" onClick={handleConfirmSave} disabled={saving}>
+                  {saving ? t('settings.saving') : t('settings.yes')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Countdown Display */}
+        {showCountdown && (
+          <div className="bg-background bg-opacity-95 absolute inset-0 flex items-center justify-center rounded-lg">
+            <div className="mx-4 max-w-sm space-y-4 text-center">
+              <div className="text-primary text-6xl font-bold">{countdownSeconds}</div>
+              <p className="text-muted-foreground text-sm">{t('settings.restarting')}</p>
+              <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className="bg-primary h-full transition-all duration-1000"
+                  style={{ width: `${(10 - countdownSeconds) * 10}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body

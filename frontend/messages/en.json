@@ -1,0 +1,67 @@
+{
+  "welcome": {
+    "title": "Chat live with your voice AI agent",
+    "button": "TALK TO CAAL",
+    "listening": "CAAL is listening"
+  },
+  "controls": {
+    "settings": "Settings",
+    "screenShare": "Screen share",
+    "transcript": "Transcript",
+    "endSession": "End session",
+    "reloadTools": "Reload tools",
+    "send": "Send",
+    "sending": "Sending...",
+    "typeMessage": "Type something..."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "sttLanguage": "Speech Recognition Language",
+    "autoDetect": "Auto-detect",
+    "englishOnly": "English only",
+    "frenchOnly": "French only",
+    "agentName": "Agent Name",
+    "voice": "Voice",
+    "wakeWordModel": "Wake Word Model",
+    "prompt": "Prompt",
+    "default": "Default",
+    "custom": "Custom",
+    "model": "Model",
+    "temperature": "Temperature",
+    "contextSize": "Context Size",
+    "maxTurns": "Max Turns",
+    "toolCache": "Tool Cache",
+    "wakeWord": "Server-Side Wake Word",
+    "wakeWordHint": "Say \"{wakeWord}\" to activate",
+    "threshold": "Detection Threshold",
+    "timeout": "Silence Timeout (s)",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "loading": "Loading settings...",
+    "modelNote": "Model, context size, and wake word changes take effect on next session.",
+    "disconnectConfirmTitle": "Apply Settings?",
+    "disconnectConfirmMessage": "To apply the new settings, you will be disconnected from the current session. Do you want to continue?",
+    "yes": "Yes, disconnect",
+    "no": "No, go back",
+    "restarting": "Restarting agent with new settings..."
+  },
+  "wakeWord": {
+    "active": "Wake word active - say \"{wakeWord}\"",
+    "initializing": "Wake word initializing...",
+    "disabled": "Wake word disabled - click to enable",
+    "waiting": "Waiting for wake word - say \"{wakeWord}\"",
+    "listening": "Listening - speak now"
+  },
+  "errors": {
+    "loadSettings": "Failed to load settings from server",
+    "saveSettings": "Failed to save",
+    "sessionEnded": "Session ended"
+  },
+  "status": {
+    "agentListening": "Agent is listening, ask it a question",
+    "toolUsed": "Tool: {toolNames}",
+    "noTool": "No tool used"
+  }
+}

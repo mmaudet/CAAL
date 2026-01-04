@@ -1,4 +1,8 @@
+'use client';
+
+import { LanguageSelector } from '@/components/language-selector';
 import { Button } from '@/components/livekit/button';
+import { useTranslation } from '@/lib/i18n';
 
 function WelcomeImage() {
   return (
@@ -19,27 +23,29 @@ function WelcomeImage() {
 }
 
 interface WelcomeViewProps {
-  startButtonText: string;
   onStartCall: () => void;
 }
 
 export const WelcomeView = ({
-  startButtonText,
   onStartCall,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const { t } = useTranslation();
+
   return (
     <div ref={ref}>
       <section className="bg-background flex flex-col items-center justify-center text-center">
         <WelcomeImage />
 
         <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
+          {t('welcome.title')}
         </p>
 
         <Button variant="primary" size="lg" onClick={onStartCall} className="mt-6 w-64 font-mono">
-          {startButtonText}
+          {t('welcome.button')}
         </Button>
+
+        <LanguageSelector className="mt-6" />
       </section>
     </div>
   );

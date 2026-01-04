@@ -12,6 +12,7 @@ import { Button } from '@/components/livekit/button';
 import { Toggle } from '@/components/livekit/toggle';
 import { SettingsButton } from '@/components/settings/settings-button';
 import { Tooltip } from '@/components/ui/tooltip';
+import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { ChatInput } from './chat-input';
 import { UseInputControlsProps, useInputControls } from './hooks/use-input-controls';
@@ -46,6 +47,7 @@ export function AgentControlBar({
   onChatOpenChange,
   ...props
 }: AgentControlBarProps & HTMLAttributes<HTMLDivElement>) {
+  const { t } = useTranslation();
   const { send } = useChat();
   const participants = useRemoteParticipants();
   const [chatOpen, setChatOpen] = useState(false);
@@ -138,11 +140,11 @@ export function AgentControlBar({
 
           {/* Toggle Screen Share */}
           {visibleControls.screenShare && (
-            <Tooltip content="Screen share">
+            <Tooltip content={t('controls.screenShare')}>
               <TrackToggle
                 size="icon"
                 variant="secondary"
-                aria-label="Toggle screen share"
+                aria-label={t('controls.screenShare')}
                 source={Track.Source.ScreenShare}
                 pressed={screenShareToggle.enabled}
                 disabled={screenShareToggle.pending}
@@ -152,11 +154,11 @@ export function AgentControlBar({
           )}
 
           {/* Toggle Transcript */}
-          <Tooltip content="Transcript">
+          <Tooltip content={t('controls.transcript')}>
             <Toggle
               size="icon"
               variant="secondary"
-              aria-label="Toggle transcript"
+              aria-label={t('controls.transcript')}
               pressed={chatOpen}
               onPressedChange={handleToggleTranscript}
             >
@@ -165,7 +167,7 @@ export function AgentControlBar({
           </Tooltip>
 
           {/* Settings Button */}
-          <SettingsButton />
+          <SettingsButton onDisconnect={onDisconnect} />
 
           {/* Reload Tools Button */}
           <ReloadToolsButton />
@@ -176,7 +178,7 @@ export function AgentControlBar({
 
         {/* Disconnect */}
         {visibleControls.leave && (
-          <Tooltip content="End session">
+          <Tooltip content={t('controls.endSession')}>
             <Button
               variant="destructive"
               onClick={onDisconnect}
@@ -184,7 +186,7 @@ export function AgentControlBar({
               className="font-mono"
             >
               <PhoneDisconnectIcon weight="bold" />
-              <span className="hidden md:inline">END CALL</span>
+              <span className="hidden md:inline">{t('controls.endSession').toUpperCase()}</span>
               <span className="inline md:hidden">END</span>
             </Button>
           </Tooltip>

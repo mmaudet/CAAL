@@ -125,16 +125,19 @@ class AppCtrl extends ChangeNotifier {
 
   /// Update server URL config.
   /// Called when user changes settings.
-  void updateConfig({
+  Future<void> updateConfig({
     required String serverUrl,
-  }) {
+  }) async {
     if (serverUrl == _serverUrl) {
       return;
     }
 
     _logger.info('Updating config - serverUrl: $serverUrl');
     _serverUrl = serverUrl;
-    notifyListeners();
+
+    // Recreate session with new URL
+    _markNeedsRecreation();
+    await _recreateSessionObjects();
   }
 
   Future<void> _cleanUp() async {
@@ -242,6 +245,15 @@ class AppCtrl extends ChangeNotifier {
     appScreenState = AppScreenState.welcome;
     agentScreenState = AgentScreenState.visualizer;
     notifyListeners();
+  }
+
+  /// Disconnect and force session recreation for fresh reconnect.
+  /// Used after settings change to ensure new token/room is obtained.
+  Future<void> disconnectAndReset() async {
+    _logger.info('Disconnecting and resetting session for fresh reconnect...');
+    await disconnect();
+    _markNeedsRecreation();
+    await _recreateSessionObjects();
   }
 
   void _handleSessionChange() {

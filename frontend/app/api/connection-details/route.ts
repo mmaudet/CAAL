@@ -37,11 +37,11 @@ export async function POST(req: Request) {
     const agentName: string = body?.room_config?.agents?.[0]?.agent_name;
 
     // Generate participant token
-    // Fixed room name - all devices share the same room/agent session
-    // This prevents orphaned agent jobs from accumulating on reconnect
+    // Unique room name per session - ensures fresh agent job on each connect
+    // This is needed because the agent process stays alive after session ends
     const participantName = 'user';
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
-    const roomName = 'voice_assistant_room';
+    const roomName = `voice_assistant_room_${Date.now()}`;
 
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, name: participantName },

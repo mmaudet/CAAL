@@ -1,0 +1,67 @@
+{
+  "welcome": {
+    "title": "Discutez en direct avec votre assistant vocal IA",
+    "button": "PARLER À CAAL",
+    "listening": "CAAL écoute"
+  },
+  "controls": {
+    "settings": "Paramètres",
+    "screenShare": "Partage d'écran",
+    "transcript": "Transcription",
+    "endSession": "Terminer la session",
+    "reloadTools": "Recharger les outils",
+    "send": "Envoyer",
+    "sending": "Envoi...",
+    "typeMessage": "Écrivez quelque chose..."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "sttLanguage": "Langue de reconnaissance vocale",
+    "autoDetect": "Détection automatique",
+    "englishOnly": "Anglais uniquement",
+    "frenchOnly": "Français uniquement",
+    "agentName": "Nom de l'agent",
+    "voice": "Voix",
+    "wakeWordModel": "Modèle de mot d'activation",
+    "prompt": "Prompt",
+    "default": "Défaut",
+    "custom": "Personnalisé",
+    "model": "Modèle",
+    "temperature": "Température",
+    "contextSize": "Taille du contexte",
+    "maxTurns": "Tours max",
+    "toolCache": "Cache des outils",
+    "wakeWord": "Mot d'activation serveur",
+    "wakeWordHint": "Dites \"{wakeWord}\" pour activer",
+    "threshold": "Seuil de détection",
+    "timeout": "Délai d'attente (s)",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "cancel": "Annuler",
+    "loading": "Chargement des paramètres...",
+    "modelNote": "Les changements de modèle, taille de contexte et mot d'activation prennent effet à la prochaine session.",
+    "disconnectConfirmTitle": "Appliquer les paramètres ?",
+    "disconnectConfirmMessage": "Pour appliquer les nouveaux paramètres, vous serez déconnecté de la session en cours. Voulez-vous continuer ?",
+    "yes": "Oui, déconnecter",
+    "no": "Non, revenir",
+    "restarting": "Redémarrage de l'agent avec les nouveaux paramètres..."
+  },
+  "wakeWord": {
+    "active": "Mot d'activation actif - dites \"{wakeWord}\"",
+    "initializing": "Initialisation du mot d'activation...",
+    "disabled": "Mot d'activation désactivé - cliquez pour activer",
+    "waiting": "En attente du mot d'activation - dites \"{wakeWord}\"",
+    "listening": "Écoute - parlez maintenant"
+  },
+  "errors": {
+    "loadSettings": "Échec du chargement des paramètres",
+    "saveSettings": "Échec de l'enregistrement",
+    "sessionEnded": "Session terminée"
+  },
+  "status": {
+    "agentListening": "L'agent écoute, posez-lui une question",
+    "toolUsed": "Outil : {toolNames}",
+    "noTool": "Aucun outil utilisé"
+  }
+}

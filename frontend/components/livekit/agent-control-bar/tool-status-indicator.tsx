@@ -4,6 +4,7 @@ import * as React from 'react';
 import { WrenchIcon } from '@phosphor-icons/react/dist/ssr';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useToolStatus } from '@/hooks/useToolStatus';
+import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 /**
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
  * Click to see tool parameters in a popup.
  */
 export function ToolStatusIndicator() {
+  const { t } = useTranslation();
   const toolStatus = useToolStatus();
   const [popupOpen, setPopupOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -51,10 +53,10 @@ export function ToolStatusIndicator() {
 
   // Tooltip content based on status
   const tooltipContent = !hasStatus
-    ? 'Tool status'
+    ? t('status.toolUsed', { toolNames: '' })
     : toolUsed
-      ? `Tool: ${toolNames.join(', ')}`
-      : 'No tool used';
+      ? t('status.toolUsed', { toolNames: toolNames.join(', ') })
+      : t('status.noTool');
 
   return (
     <div ref={containerRef} className="relative flex items-center gap-1.5">

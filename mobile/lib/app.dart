@@ -7,6 +7,7 @@ import 'controllers/app_ctrl.dart';
 import 'controllers/audio_filter_ctrl.dart';
 import 'controllers/tool_status_ctrl.dart';
 import 'controllers/wake_word_state_ctrl.dart';
+import 'l10n/app_localizations.dart';
 import 'screens/agent_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -17,8 +18,9 @@ import 'widgets/session_error_banner.dart';
 
 class CaalApp extends StatefulWidget {
   final ConfigService configService;
+  final AppLocalizations appLocalizations;
 
-  const CaalApp({super.key, required this.configService});
+  const CaalApp({super.key, required this.configService, required this.appLocalizations});
 
   @override
   State<CaalApp> createState() => _CaalAppState();
@@ -100,27 +102,32 @@ class _CaalAppState extends State<CaalApp> {
   Widget build(BuildContext context) {
     // Show setup screen if not configured
     if (_appCtrl == null) {
-      return ChangeNotifierProvider.value(
-        value: widget.configService,
-        child: MaterialApp(
-          title: 'CAAL',
-          theme: buildTheme(isLight: true),
-          darkTheme: buildTheme(isLight: false),
-          themeMode: ThemeMode.dark,
-          home: SetupScreen(
-            configService: widget.configService,
-            onConfigured: _onConfigured,
+      return ChangeNotifierProvider<AppLocalizations>.value(
+        value: widget.appLocalizations,
+        child: ChangeNotifierProvider.value(
+          value: widget.configService,
+          child: MaterialApp(
+            title: 'CAAL',
+            theme: buildTheme(isLight: true),
+            darkTheme: buildTheme(isLight: false),
+            themeMode: ThemeMode.dark,
+            home: SetupScreen(
+              configService: widget.configService,
+              onConfigured: _onConfigured,
+            ),
           ),
         ),
       );
     }
 
     // Normal app flow with AppCtrl
-    return ChangeNotifierProvider.value(
-      value: widget.configService,
+    return ChangeNotifierProvider<AppLocalizations>.value(
+      value: widget.appLocalizations,
       child: ChangeNotifierProvider.value(
-        value: _appCtrl!,
-        child: Consumer<AppCtrl>(
+        value: widget.configService,
+        child: ChangeNotifierProvider.value(
+          value: _appCtrl!,
+          child: Consumer<AppCtrl>(
           builder: (ctx, appCtrl, _) {
             final toolStatusCtrl = ToolStatusCtrl(room: appCtrl.room);
             final wakeWordStateCtrl = WakeWordStateCtrl(
@@ -170,6 +177,7 @@ class _CaalAppState extends State<CaalApp> {
             );
           },
         ),
+      ),
       ),
     );
   }

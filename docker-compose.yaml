@@ -77,6 +77,7 @@ services:
       - SPEACHES_URL=http://speaches:8000
       - KOKORO_URL=http://kokoro:8880
       - PIPER_URL=http://piper:8000
+      - CAAL_SETTINGS_PATH=/app/config/settings.json
     volumes:
       - caal-memory:/app/data
       - caal-config:/app/config  # Runtime config (settings.json, mcp_servers.json)

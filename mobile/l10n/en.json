@@ -1,0 +1,54 @@
+{
+  "welcome": {
+    "title": "Chat live with your voice AI agent",
+    "button": "Talk to CAAL",
+    "connecting": "Connecting",
+    "listening": "CAAL is listening"
+  },
+  "setup": {
+    "title": "CAAL Setup",
+    "subtitle": "Enter your server address to get started",
+    "serverUrl": "Server URL",
+    "serverUrlRequired": "Server URL is required",
+    "invalidUrl": "Enter a valid URL (e.g., http://192.168.1.100:3000)",
+    "serverHint": "Your CAAL server address",
+    "connect": "CONNECT",
+    "save": "SAVE",
+    "connection": "Connection",
+    "settingsNote": "Full agent settings are available during an active session via the gear icon."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageHint": "Controls TTS voice and wake greetings language",
+    "sttLanguage": "Speech Recognition Language",
+    "sttLanguageHint": "Hint for speech-to-text. Auto works well for most cases.",
+    "agentName": "Agent Name",
+    "voice": "Voice",
+    "model": "Model",
+    "wakeGreetings": "Wake Greetings",
+    "temperature": "Temperature",
+    "contextSize": "Context Size",
+    "maxTurns": "Max Turns",
+    "toolCache": "Tool Cache",
+    "wakeWord": "Server-Side Wake Word",
+    "wakeWordHint": "Say \"Hey Jarvis\" to activate",
+    "wakeWordModel": "Wake Word Model",
+    "threshold": "Threshold",
+    "timeout": "Timeout (s)",
+    "cancel": "Cancel",
+    "save": "Save",
+    "yes": "Yes",
+    "no": "No",
+    "loadError": "Failed to load settings",
+    "saveError": "Failed to save settings",
+    "modelNote": "Note: Model, context size, and wake word changes take effect on next session.",
+    "disconnectConfirmTitle": "Apply Settings?",
+    "disconnectConfirmMessage": "Saving will disconnect and restart the agent with new settings.",
+    "restarting": "Restarting agent with new settings..."
+  },
+  "controls": {
+    "settings": "Settings",
+    "toolParams": "Tool Parameters"
+  }
+}

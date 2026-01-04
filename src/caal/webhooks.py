@@ -37,10 +37,13 @@ from __future__ import annotations
 import logging
 import os
 import random
+import time
+from datetime import timedelta
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from livekit.api import AccessToken, VideoGrants
 from pydantic import BaseModel
 
 from . import settings as settings_module
@@ -245,8 +248,12 @@ async def wake(req: WakeRequest) -> WakeResponse:
     session, _agent = result
     logger.info(f"Wake word detected in room {req.room_name}")
 
-    # Get greeting
-    greetings = settings_module.get_setting("wake_greetings")
+    # Get greeting based on language setting
+    language = settings_module.get_setting("language", "en")
+    if language == "fr":
+        greetings = settings_module.get_setting("wake_greetings_fr", ["Oui?", "Je t'ecoute!"])
+    else:
+        greetings = settings_module.get_setting("wake_greetings", ["Hey, what's up?"])
     greeting = random.choice(greetings)
 
     # Call TTS directly and push to audio output, bypassing agent turn-taking
@@ -277,6 +284,105 @@ async def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         active_sessions=session_registry.list_rooms(),
+    )
+
+
+# =============================================================================
+# Connection Details Endpoint (for mobile apps)
+# =============================================================================
+
+
+class ConnectionDetailsRequest(BaseModel):
+    """Request body for /api/connection-details endpoint."""
+
+    room_config: dict | None = None
+
+
+class ConnectionDetailsResponse(BaseModel):
+    """Response body for /api/connection-details endpoint."""
+
+    serverUrl: str
+    roomName: str
+    participantName: str
+    participantToken: str
+
+
+@app.post("/connection-details", response_model=ConnectionDetailsResponse)
+@app.post("/api/connection-details", response_model=ConnectionDetailsResponse)
+async def connection_details(
+    request: Request, body: ConnectionDetailsRequest | None = None
+) -> ConnectionDetailsResponse:
+    """Generate LiveKit connection details for mobile/web clients.
+
+    This endpoint generates a participant token and returns the connection
+    details needed to join a LiveKit room.
+
+    Returns:
+        ConnectionDetailsResponse with serverUrl, roomName, participantName, and token
+    """
+    api_key = os.getenv("LIVEKIT_API_KEY")
+    api_secret = os.getenv("LIVEKIT_API_SECRET")
+    livekit_url = os.getenv("LIVEKIT_URL", "ws://livekit:7880")
+    livekit_public_url = os.getenv("NEXT_PUBLIC_LIVEKIT_URL")
+
+    if not api_key or not api_secret:
+        raise HTTPException(
+            status_code=500,
+            detail="LIVEKIT_API_KEY or LIVEKIT_API_SECRET not configured",
+        )
+
+    # Parse agent name from request body if provided
+    agent_name = None
+    if body and body.room_config:
+        agents = body.room_config.get("agents", [])
+        if agents and len(agents) > 0:
+            agent_name = agents[0].get("agent_name")
+
+    # Generate unique room and participant identifiers
+    participant_name = "user"
+    participant_identity = f"voice_assistant_user_{random.randint(1000, 9999)}"
+    room_name = f"voice_assistant_room_{int(time.time() * 1000)}"
+
+    # Create access token with grants using fluent API
+    token = (
+        AccessToken(api_key, api_secret)
+        .with_identity(participant_identity)
+        .with_name(participant_name)
+        .with_ttl(timedelta(minutes=15))
+        .with_grants(
+            VideoGrants(
+                room=room_name,
+                room_join=True,
+                room_create=True,
+                can_publish=True,
+                can_publish_data=True,
+                can_subscribe=True,
+            )
+        )
+    )
+
+    # Determine WebSocket URL
+    # For HTTPS requests, use the public URL; otherwise derive from request
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    is_https = forwarded_proto == "https" or str(request.url).startswith("https://")
+    host = request.headers.get("host", "localhost")
+    hostname = host.split(":")[0]
+
+    # Special case: localhost requests (e.g., from emulator via adb reverse)
+    # Return localhost URL so emulator can reach LiveKit via tunnel (HTTP to avoid SSL issues)
+    if hostname == "localhost" or hostname == "127.0.0.1":
+        server_url = "ws://localhost:7880"
+    elif is_https and livekit_public_url:
+        server_url = livekit_public_url
+    else:
+        # Derive from request host
+        server_url = f"ws://{hostname}:7880"
+
+    return ConnectionDetailsResponse(
+        serverUrl=server_url,
+        roomName=room_name,
+        participantName=participant_name,
+        participantToken=token.to_jwt(),
     )
 
 
@@ -452,11 +558,17 @@ async def get_voices() -> VoicesResponse:
             response.raise_for_status()
             data = response.json()
 
-            # Kokoro returns {"voices": [{"id": "...", ...}, ...]}
+            # Kokoro returns {"voices": ["id1", "id2", ...]} (list of strings)
+            # or possibly {"voices": [{"id": "...", ...}, ...]} (list of objects)
             for v in data.get("voices", []):
-                voice_id = v.get("id") or v.get("voice_id")
-                if voice_id:
-                    voices.append(Voice(id=voice_id, language="en", name=v.get("name")))
+                if isinstance(v, str):
+                    # Simple string format
+                    voices.append(Voice(id=v, language="en"))
+                elif isinstance(v, dict):
+                    # Object format
+                    voice_id = v.get("id") or v.get("voice_id")
+                    if voice_id:
+                        voices.append(Voice(id=voice_id, language="en", name=v.get("name")))
     except Exception as e:
         logger.warning(f"Failed to fetch voices from Kokoro: {e}")
         # Add default English voices as fallback
@@ -598,6 +710,75 @@ async def disable_wake_word() -> WakeWordStatusResponse:
         model=settings.get("wake_word_model", "models/hey_jarvis.onnx"),
         threshold=settings.get("wake_word_threshold", 0.5),
         timeout=settings.get("wake_word_timeout", 3.0),
+    )
+
+
+class WarmupResponse(BaseModel):
+    """Response body for /warmup endpoint."""
+
+    status: str
+    tts_ready: bool
+    llm_ready: bool
+
+
+@app.post("/warmup", response_model=WarmupResponse)
+async def warmup() -> WarmupResponse:
+    """Warm up TTS and LLM services.
+
+    Synthesizes a short test phrase to ensure TTS is ready,
+    and sends a simple prompt to Ollama to keep the model loaded.
+
+    Returns:
+        WarmupResponse with readiness status for each service
+    """
+    settings = settings_module.load_settings()
+    voice = settings.get("tts_voice", "am_puck")
+    language = settings.get("language", "en")
+    model = settings.get("model", "ministral-3:8b")
+
+    kokoro_url = os.getenv("KOKORO_URL", "http://kokoro:8880")
+    piper_url = os.getenv("PIPER_URL", "http://piper:8000")
+    ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
+    tts_ready = False
+    llm_ready = False
+
+    # Warm up TTS
+    try:
+        tts_url = piper_url if (language == "fr" or voice.startswith("fr_")) else kokoro_url
+        async with httpx.AsyncClient() as client:
+            # Just call the voices endpoint to keep connection warm
+            response = await client.get(
+                f"{tts_url}/v1/audio/voices",
+                timeout=10.0,
+            )
+            tts_ready = response.status_code == 200
+            logger.info(f"TTS warmup: {tts_url} -> {response.status_code}")
+    except Exception as e:
+        logger.warning(f"TTS warmup failed: {e}")
+
+    # Warm up LLM
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{ollama_host}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "hi",
+                    "stream": False,
+                    "options": {"num_predict": 1},  # Generate just 1 token
+                },
+                timeout=30.0,
+            )
+            llm_ready = response.status_code == 200
+            logger.info(f"LLM warmup: {model} -> {response.status_code}")
+    except Exception as e:
+        logger.warning(f"LLM warmup failed: {e}")
+
+    return WarmupResponse(
+        status="warmed_up" if (tts_ready and llm_ready) else "partial",
+        tts_ready=tts_ready,
+        llm_ready=llm_ready,
     )
 
 

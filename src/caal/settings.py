@@ -176,7 +176,7 @@ def load_prompt_content(prompt_name: str | None = None) -> str:
     """Load raw prompt content from file.
 
     Args:
-        prompt_name: "default" or "custom". If None, uses settings["prompt"].
+        prompt_name: "default", "french", or "custom". If None, uses settings.
 
     Returns:
         Prompt file content, or default content if file doesn't exist.
@@ -184,10 +184,16 @@ def load_prompt_content(prompt_name: str | None = None) -> str:
     if prompt_name is None:
         prompt_name = get_setting("prompt", "default")
 
+    # If using default prompt, check language setting to use french.md
+    if prompt_name == "default":
+        language = get_setting("language", "en")
+        if language == "fr":
+            prompt_name = "french"
+
     prompt_path = get_prompt_path(prompt_name)
 
-    # If custom doesn't exist, fall back to default
-    if prompt_name == "custom" and not prompt_path.exists():
+    # If custom/french doesn't exist, fall back to default
+    if not prompt_path.exists():
         prompt_path = get_prompt_path("default")
 
     try:

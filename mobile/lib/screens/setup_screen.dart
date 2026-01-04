@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/config_service.dart';
 
 /// Setup screen for initial server URL configuration.
@@ -54,6 +56,7 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final isFirstSetup = !widget.configService.isConfigured;
+    final l10n = context.watch<AppLocalizations>();
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
@@ -65,7 +68,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 icon: const Icon(Icons.close, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
-              title: const Text('Connection', style: TextStyle(color: Colors.white)),
+              title: Text(l10n.t('setup.connection'), style: const TextStyle(color: Colors.white)),
             ),
       body: SafeArea(
         child: Center(
@@ -80,9 +83,9 @@ class _SetupScreenState extends State<SetupScreen> {
                   if (isFirstSetup) ...[
                     const Icon(Icons.graphic_eq, size: 80, color: Colors.white),
                     const SizedBox(height: 16),
-                    const Text(
-                      'CAAL Setup',
-                      style: TextStyle(
+                    Text(
+                      l10n.t('setup.title'),
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -90,18 +93,18 @@ class _SetupScreenState extends State<SetupScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Enter your server address to get started',
-                      style: TextStyle(fontSize: 16, color: Colors.white70),
+                    Text(
+                      l10n.t('setup.subtitle'),
+                      style: const TextStyle(fontSize: 16, color: Colors.white70),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 40),
                   ],
 
                   // Server URL field
-                  const Text(
-                    'Server URL',
-                    style: TextStyle(
+                  Text(
+                    l10n.t('setup.serverUrl'),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
@@ -129,19 +132,19 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Server URL is required';
+                        return l10n.t('setup.serverUrlRequired');
                       }
                       final uri = Uri.tryParse(value.trim());
                       if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-                        return 'Enter a valid URL (e.g., http://192.168.1.100:3000)';
+                        return l10n.t('setup.invalidUrl');
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Your CAAL server address',
-                    style: TextStyle(fontSize: 12, color: Colors.white54),
+                  Text(
+                    l10n.t('setup.serverHint'),
+                    style: const TextStyle(fontSize: 12, color: Colors.white54),
                   ),
                   const SizedBox(height: 40),
 
@@ -168,7 +171,7 @@ class _SetupScreenState extends State<SetupScreen> {
                               ),
                             )
                           : Text(
-                              isFirstSetup ? 'CONNECT' : 'SAVE',
+                              isFirstSetup ? l10n.t('setup.connect') : l10n.t('setup.save'),
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                     ),
@@ -176,9 +179,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
                   if (isFirstSetup) ...[
                     const SizedBox(height: 24),
-                    const Text(
-                      'Full agent settings are available during an active session via the gear icon.',
-                      style: TextStyle(fontSize: 12, color: Colors.white38),
+                    Text(
+                      l10n.t('setup.settingsNote'),
+                      style: const TextStyle(fontSize: 12, color: Colors.white38),
                       textAlign: TextAlign.center,
                     ),
                   ],

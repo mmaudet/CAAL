@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../controllers/app_ctrl.dart' show AppCtrl, AgentScreenState;
 import '../controllers/tool_status_ctrl.dart';
 import '../controllers/wake_word_state_ctrl.dart';
+import '../l10n/app_localizations.dart';
 import '../ui/color_pallette.dart' show LKColorPaletteLight;
 import 'floating_glass.dart';
 import 'settings_modal.dart';
@@ -131,23 +132,25 @@ class _ToolDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.watch<AppLocalizations>();
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.build,
                 color: Color(0xFF45997C),
                 size: 20,
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Text(
-                'Tool Parameters',
-                style: TextStyle(
+                l10n.t('controls.toolParams'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Ear, EarSlash } from '@phosphor-icons/react/dist/ssr';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useWakeWordState } from '@/hooks/useWakeWordState';
+import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 /**
@@ -29,18 +30,19 @@ function formatWakeWordName(modelPath: string): string {
  * This replaces the client-side Picovoice toggle - server controls the state.
  */
 export function ServerWakeWordIndicator({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const state = useWakeWordState();
-  const [wakeWordName, setWakeWordName] = React.useState<string>('');
+  const [wakeWordName, setWakeWordName] = React.useState<string>('Hey Jarvis');
 
   // Fetch wake word model name from settings
   React.useEffect(() => {
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        const modelPath = data.settings?.wake_word_model || 'models/hey_cal.onnx';
+        const modelPath = data.settings?.wake_word_model || 'models/hey_jarvis.onnx';
         setWakeWordName(formatWakeWordName(modelPath));
       })
-      .catch(() => setWakeWordName('Hey Cal'));
+      .catch(() => setWakeWordName('Hey Jarvis'));
   }, []);
 
   // Determine icon and color based on state
@@ -51,10 +53,10 @@ export function ServerWakeWordIndicator({ className }: { className?: string }) {
   const IconComponent = isDisabled ? EarSlash : Ear;
 
   const title = isDisabled
-    ? 'Wake word detection disabled'
+    ? t('wakeWord.disabled')
     : isSleeping
-      ? `Waiting for wake word - say "${wakeWordName}"`
-      : 'Listening - speak now';
+      ? t('wakeWord.waiting', { wakeWord: wakeWordName })
+      : t('wakeWord.listening');
 
   return (
     <Tooltip content={title}>

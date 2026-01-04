@@ -1,0 +1,54 @@
+{
+  "welcome": {
+    "title": "Discutez en direct avec votre assistant vocal IA",
+    "button": "Parler à CAAL",
+    "connecting": "Connexion...",
+    "listening": "CAAL écoute"
+  },
+  "setup": {
+    "title": "Configuration CAAL",
+    "subtitle": "Entrez l'adresse de votre serveur pour commencer",
+    "serverUrl": "URL du serveur",
+    "serverUrlRequired": "L'URL du serveur est requise",
+    "invalidUrl": "Entrez une URL valide (ex: http://192.168.1.100:3000)",
+    "serverHint": "Adresse de votre serveur CAAL",
+    "connect": "CONNEXION",
+    "save": "ENREGISTRER",
+    "connection": "Connexion",
+    "settingsNote": "Les paramètres complets sont disponibles pendant une session active via l'icône engrenage."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "languageHint": "Contrôle la voix TTS et les messages de réveil",
+    "sttLanguage": "Langue de reconnaissance vocale",
+    "sttLanguageHint": "Indication pour la reconnaissance vocale. Auto fonctionne bien dans la plupart des cas.",
+    "agentName": "Nom de l'agent",
+    "voice": "Voix",
+    "model": "Modèle",
+    "wakeGreetings": "Messages de réveil",
+    "temperature": "Température",
+    "contextSize": "Taille du contexte",
+    "maxTurns": "Tours max",
+    "toolCache": "Cache des outils",
+    "wakeWord": "Mot d'activation serveur",
+    "wakeWordHint": "Dites \"Hey Jarvis\" pour activer",
+    "wakeWordModel": "Modèle de mot d'activation",
+    "threshold": "Seuil",
+    "timeout": "Délai (s)",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "yes": "Oui",
+    "no": "Non",
+    "loadError": "Échec du chargement des paramètres",
+    "saveError": "Échec de l'enregistrement",
+    "modelNote": "Note : Les changements de modèle, taille de contexte et mot d'activation prennent effet à la prochaine session.",
+    "disconnectConfirmTitle": "Appliquer les paramètres ?",
+    "disconnectConfirmMessage": "L'enregistrement déconnectera et redémarrera l'agent avec les nouveaux paramètres.",
+    "restarting": "Redémarrage de l'agent avec les nouveaux paramètres..."
+  },
+  "controls": {
+    "settings": "Paramètres",
+    "toolParams": "Paramètres de l'outil"
+  }
+}

@@ -2,6 +2,7 @@ import { Public_Sans } from 'next/font/google';
 import localFont from 'next/font/local';
 import { headers } from 'next/headers';
 import { ThemeProvider } from '@/components/app/theme-provider';
+import { I18nProvider, Locale } from '@/lib/i18n';
 import { cn, getAppConfig, getStyles } from '@/lib/utils';
 import '@/styles/globals.css';
 
@@ -47,9 +48,12 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const { pageTitle, pageDescription } = appConfig;
   const styles = getStyles(appConfig);
 
+  // Get default language from environment (falls back to 'en')
+  const defaultLocale = (process.env.DEFAULT_LANGUAGE as Locale) || 'en';
+
   return (
     <html
-      lang="en"
+      lang={defaultLocale}
       suppressHydrationWarning
       className={cn(
         publicSans.variable,
@@ -79,14 +83,16 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <meta name="description" content={pageDescription} />
       </head>
       <body className="overflow-x-hidden">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <I18nProvider defaultLocale={defaultLocale}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            disableTransitionOnChange
+          >
+            {children}
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

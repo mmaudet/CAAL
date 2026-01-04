@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app.dart';
+import 'l10n/app_localizations.dart';
 import 'services/config_service.dart';
 
 void main() async {
@@ -13,6 +14,11 @@ void main() async {
   // Initialize config service first
   final configService = ConfigService();
   await configService.init();
+
+  // Initialize localization
+  final savedLocale = await AppLocalizations.getSavedLocale();
+  final appLocalizations = AppLocalizations(savedLocale);
+  await appLocalizations.load();
 
   // Try to load .env as fallback for development (optional)
   try {
@@ -28,5 +34,5 @@ void main() async {
     // .env file not found - that's fine, we'll use ConfigService
   }
 
-  runApp(CaalApp(configService: configService));
+  runApp(CaalApp(configService: configService, appLocalizations: appLocalizations));
 }

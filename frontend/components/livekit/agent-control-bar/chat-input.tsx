@@ -1,7 +1,10 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { PaperPlaneRightIcon, SpinnerIcon } from '@phosphor-icons/react/dist/ssr';
 import { Button } from '@/components/livekit/button';
+import { useTranslation } from '@/lib/i18n';
 
 const MOTION_PROPS = {
   variants: {
@@ -34,6 +37,7 @@ export function ChatInput({
   isAgentAvailable = false,
   onSend = async () => {},
 }: ChatInputProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState<string>('');
@@ -77,7 +81,7 @@ export function ChatInput({
           type="text"
           value={message}
           disabled={!chatOpen}
-          placeholder="Type something..."
+          placeholder={t('controls.typeMessage')}
           onChange={(e) => setMessage(e.target.value)}
           className="h-8 flex-1 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
@@ -86,7 +90,7 @@ export function ChatInput({
           type="submit"
           disabled={isDisabled}
           variant={isDisabled ? 'secondary' : 'primary'}
-          title={isSending ? 'Sending...' : 'Send'}
+          title={isSending ? t('controls.sending') : t('controls.send')}
           className="self-start"
         >
           {isSending ? (
