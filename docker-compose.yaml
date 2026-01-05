@@ -148,6 +148,45 @@ services:
       start_period: 60s
 
   # ===========================================================================
+  # Piper/XTTS - TTS for French voices (openedai-speech)
+  # ===========================================================================
+  # Optional: Use with docker compose --profile french up -d
+  # XTTS-v2 with CUDA for low-latency French TTS
+  # Piper voices available as fallback (tts-1 model)
+  piper:
+    profiles:
+      - french
+    image: ghcr.io/matatonic/openedai-speech:latest
+    container_name: caal-piper
+    ports:
+      - "${PIPER_PORT:-8001}:8000"
+    volumes:
+      - piper-voices:/app/voices
+      - ./piper-config:/app/config
+    environment:
+      - TTS_HOME=/app/voices
+      # Use XTTS for tts-1-hd (GPU accelerated), Piper for tts-1 (CPU)
+      - DEFAULT_TTS_MODEL=xtts
+      # CUDA device for XTTS
+      - XTTS_DEVICE=cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - caal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  # ===========================================================================
   # Frontend - Next.js Web Interface
   # ===========================================================================
   frontend:
@@ -222,3 +261,5 @@ volumes:
     name: caal-speaches-cache
   kokoro-cache:
     name: caal-kokoro-cache
+  piper-voices:
+    name: caal-piper-voices

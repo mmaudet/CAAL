@@ -1,0 +1,41 @@
+tts-1:
+  # English voices from LibriTTS
+  alloy:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 79
+  echo:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 134
+  fable:
+    model: voices/en_GB-northern_english_male-medium.onnx
+    speaker:
+  onyx:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 159
+  nova:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 107
+  shimmer:
+    model: voices/en_US-libritts_r-medium.onnx
+    speaker: 163
+  # French voices from Piper
+  fr_FR-siwis-medium:
+    model: voices/fr_FR-siwis-medium.onnx
+    speaker:
+  fr_FR-tom-medium:
+    model: voices/fr_FR-tom-medium.onnx
+    speaker:
+tts-1-hd:
+  # XTTS voices - GPU accelerated with voice cloning
+  alloy:
+    model: xtts
+    speaker: voices/alloy.wav
+  # French voices for XTTS
+  # Note: XTTS can clone any voice from a ~10-30s reference audio
+  # For now, we use the same model with built-in French language support
+  fr_FR-siwis-medium:
+    model: xtts
+    speaker: voices/fr_siwis.wav
+  fr_FR-tom-medium:
+    model: xtts
+    speaker: voices/fr_tom.wav
