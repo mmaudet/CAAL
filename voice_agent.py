@@ -45,14 +45,14 @@ from livekit import agents
 from livekit.agents import AgentSession, Agent, mcp
 from livekit.plugins import silero, openai
 
-from caal import OllamaLLM
+from caal import CAALLLM
 from caal.integrations import (
     load_mcp_config,
     initialize_mcp_servers,
     WebSearchTools,
     discover_n8n_workflows,
 )
-from caal.llm import ollama_llm_node, ToolDataCache
+from caal.llm import llm_node, ToolDataCache
 from caal import session_registry
 from caal.stt import WakeWordGatedSTT
 
@@ -99,9 +99,16 @@ def get_runtime_settings() -> dict:
 
     return {
         "tts_voice": settings.get("tts_voice") or os.getenv("TTS_VOICE", "am_puck"),
-        "model": settings.get("model") or os.getenv("OLLAMA_MODEL", "ministral-3:8b"),
+        # LLM Provider settings
+        "llm_provider": settings.get("llm_provider") or os.getenv("LLM_PROVIDER", "ollama"),
         "temperature": settings.get("temperature", float(os.getenv("OLLAMA_TEMPERATURE", "0.7"))),
+        # Ollama settings
+        "model": settings.get("model") or os.getenv("OLLAMA_MODEL", "ministral-3:8b"),
         "num_ctx": settings.get("num_ctx", int(os.getenv("OLLAMA_NUM_CTX", "8192"))),
+        "think": OLLAMA_THINK,  # Only applies to Ollama
+        # Groq settings
+        "groq_model": settings.get("groq_model") or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        # Shared settings
         "max_turns": settings.get("max_turns", int(os.getenv("OLLAMA_MAX_TURNS", "20"))),
         "tool_cache_size": settings.get("tool_cache_size", int(os.getenv("TOOL_CACHE_SIZE", "3"))),
     }
@@ -128,7 +135,7 @@ class VoiceAssistant(WebSearchTools, Agent):
 
     def __init__(
         self,
-        ollama_llm: OllamaLLM,
+        caal_llm: CAALLLM,
         mcp_servers: dict[str, mcp.MCPServerHTTP] | None = None,
         n8n_workflow_tools: list[dict] | None = None,
         n8n_workflow_name_map: dict[str, str] | None = None,
@@ -139,8 +146,11 @@ class VoiceAssistant(WebSearchTools, Agent):
     ) -> None:
         super().__init__(
             instructions=load_prompt(),
-            llm=ollama_llm,  # Satisfies LLM interface requirement
+            llm=caal_llm,  # Satisfies LLM interface requirement
         )
+
+        # Store provider for llm_node access
+        self._provider = caal_llm.provider_instance
 
         # All MCP servers (for multi-MCP support)
         # Named _caal_mcp_servers to avoid conflict with LiveKit's internal _mcp_servers handling
@@ -159,15 +169,11 @@ class VoiceAssistant(WebSearchTools, Agent):
         self._max_turns = max_turns
 
     async def llm_node(self, chat_ctx, tools, model_settings):
-        """Custom LLM node using Ollama with think parameter for low latency."""
-        # Access config from OllamaLLM instance via self.llm
-        async for chunk in ollama_llm_node(
+        """Custom LLM node using provider-agnostic interface."""
+        async for chunk in llm_node(
             self,
             chat_ctx,
-            model=self.llm.model,
-            think=self.llm.think,
-            temperature=self.llm.temperature,
-            num_ctx=self.llm.num_ctx,
+            provider=self._provider,
             tool_data_cache=self._tool_data_cache,
             max_turns=self._max_turns,
         ):
@@ -228,13 +234,8 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     # Get runtime settings (from settings.json with .env fallback)
     runtime = get_runtime_settings()
 
-    # Create OllamaLLM instance (config lives here, accessed via self.llm in agent)
-    ollama_llm = OllamaLLM(
-        model=runtime["model"],
-        think=OLLAMA_THINK,
-        temperature=runtime["temperature"],
-        num_ctx=runtime["num_ctx"],
-    )
+    # Create CAALLLM instance (provider-agnostic wrapper)
+    caal_llm = CAALLLM.from_settings(runtime)
 
     # Log configuration
     logger.info("=" * 60)
@@ -242,9 +243,14 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     logger.info("=" * 60)
     logger.info(f"  STT: {SPEACHES_URL} ({WHISPER_MODEL})")
     logger.info(f"  TTS: {KOKORO_URL} ({runtime['tts_voice']})")
-    logger.info(
-        f"  LLM: Ollama ({runtime['model']}, think={OLLAMA_THINK}, num_ctx={runtime['num_ctx']})"
-    )
+    if runtime["llm_provider"] == "ollama":
+        logger.info(
+            f"  LLM: Ollama ({runtime['model']}, think={runtime['think']}, num_ctx={runtime['num_ctx']})"
+        )
+    else:
+        logger.info(
+            f"  LLM: Groq ({runtime['groq_model']})"
+        )
     logger.info(f"  MCP: {list(mcp_servers.keys()) or 'None'}")
     logger.info("=" * 60)
 
@@ -333,7 +339,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     logger.info(f"  STT capabilities: streaming={stt_instance.capabilities.streaming}")
     session = AgentSession(
         stt=stt_instance,
-        llm=ollama_llm,
+        llm=caal_llm,
         tts=openai.TTS(
             base_url=f"{KOKORO_URL}/v1",
             api_key="not-needed",  # Kokoro doesn't require auth
@@ -397,9 +403,9 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
     # ==========================================================================
 
-    # Create agent with OllamaLLM and all MCP servers
+    # Create agent with CAALLLM and all MCP servers
     assistant = VoiceAssistant(
-        ollama_llm=ollama_llm,
+        caal_llm=caal_llm,
         mcp_servers=mcp_servers,
         n8n_workflow_tools=n8n_workflow_tools,
         n8n_workflow_name_map=n8n_workflow_name_map,

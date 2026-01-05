@@ -42,9 +42,15 @@ DEFAULT_SETTINGS = {
         "Yo!",
         "What's up?",
     ],
+    # LLM Provider settings
+    "llm_provider": "ollama",  # "ollama" or "groq"
     "temperature": 0.7,
+    # Ollama settings
     "model": "ministral-3:8b",
     "num_ctx": 8192,
+    # Groq settings (api key via GROQ_API_KEY env var)
+    "groq_model": "llama-3.3-70b-versatile",
+    # Shared settings
     "max_turns": 20,
     "tool_cache_size": 3,
     # Wake word detection (server-side OpenWakeWord)
