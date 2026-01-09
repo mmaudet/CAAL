@@ -273,7 +273,7 @@ async def _discover_tools(agent) -> list[dict] | None:
 
     tools = []
 
-    # Get @function_tool decorated methods from agent
+    # Get @function_tool decorated methods from agent (bound methods on class)
     if hasattr(agent, "_tools") and agent._tools:
         for tool in agent._tools:
             if hasattr(tool, "__func__"):
@@ -337,6 +337,10 @@ async def _discover_tools(agent) -> list[dict] | None:
     # Add n8n workflow tools (webhook-based execution, separate from MCP)
     if hasattr(agent, "_n8n_workflow_tools") and agent._n8n_workflow_tools:
         tools.extend(agent._n8n_workflow_tools)
+
+    # Add Home Assistant tools (only if HASS is connected)
+    if hasattr(agent, "_hass_tool_definitions") and agent._hass_tool_definitions:
+        tools.extend(agent._hass_tool_definitions)
 
     # Cache tools on agent and return
     result = tools if tools else None
@@ -460,11 +464,19 @@ async def _execute_single_tool(agent, tool_name: str, arguments: dict) -> Any:
     """Execute a single tool call.
 
     Routing priority:
-    1. Agent methods (@function_tool decorated)
-    2. n8n workflows (webhook-based execution)
-    3. MCP servers (with server_name__tool_name prefix parsing)
+    1. Home Assistant tools (callable dict)
+    2. Agent methods (@function_tool decorated on class)
+    3. n8n workflows (webhook-based execution)
+    4. MCP servers (with server_name__tool_name prefix parsing)
     """
-    # Check if it's an agent method
+    # Check Home Assistant tools (callable functions stored in dict)
+    if hasattr(agent, "_hass_tool_callables") and tool_name in agent._hass_tool_callables:
+        logger.info(f"Calling HASS tool: {tool_name}")
+        result = await agent._hass_tool_callables[tool_name](**arguments)
+        logger.info(f"HASS tool {tool_name} completed")
+        return result
+
+    # Check if it's an agent method (decorated on class)
     if hasattr(agent, tool_name) and callable(getattr(agent, tool_name)):
         logger.info(f"Calling agent tool: {tool_name}")
         result = await getattr(agent, tool_name)(**arguments)

@@ -58,7 +58,10 @@ export async function POST(req: Request) {
     const forwardedProto = req.headers.get('x-forwarded-proto');
     const isHttps = forwardedProto === 'https' || req.url.startsWith('https://');
 
-    if (isHttps && LIVEKIT_PUBLIC_URL) {
+    if (LIVEKIT_PUBLIC_URL && LIVEKIT_PUBLIC_URL.startsWith('wss://')) {
+      // Explicit wss:// URL configured - use it directly (remote LiveKit server)
+      serverUrl = LIVEKIT_PUBLIC_URL;
+    } else if (isHttps && LIVEKIT_PUBLIC_URL) {
       // HTTPS request - use configured secure URL (Tailscale/distributed mode)
       serverUrl = LIVEKIT_PUBLIC_URL;
     } else {

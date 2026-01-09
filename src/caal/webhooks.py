@@ -358,9 +358,16 @@ async def update_settings(req: SettingsUpdateRequest) -> SettingsResponse:
     # Load current settings
     current = settings_module.load_settings()
 
+    # Secret fields that should not be overwritten with empty values
+    # (UI doesn't show these, so saving would clear them)
+    secret_fields = {"groq_api_key", "hass_token", "n8n_token"}
+
     # Merge with new settings (only known keys)
     for key, value in req.settings.items():
         if key in settings_module.DEFAULT_SETTINGS:
+            # Don't overwrite secrets with empty values
+            if key in secret_fields and not value:
+                continue
             current[key] = value
 
     # Save merged settings

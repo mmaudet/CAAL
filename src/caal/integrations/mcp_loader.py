@@ -4,6 +4,7 @@ Loads MCP server definitions from settings, environment variables, and optional 
 Settings take priority, then env vars, then JSON file.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -11,7 +12,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx
 from livekit.agents import mcp
+
+# Timeout for pre-flight connection test (seconds)
+# This validates connectivity before calling MCP initialize() which can hang
+CONNECTION_TEST_TIMEOUT = 3.0
 
 logger = logging.getLogger(__name__)
 
@@ -90,14 +96,23 @@ def load_mcp_config(settings: dict[str, Any] | None = None) -> list[MCPServerCon
         logger.info("Home Assistant not configured - HASS MCP tools will not be available")
 
     # 2. n8n MCP Server - settings first, then env vars
-    n8n_enabled = settings.get("n8n_enabled", False)
-    n8n_url = settings.get("n8n_url") if n8n_enabled else None
-    n8n_token = settings.get("n8n_token") if n8n_enabled else None
+    # Check if explicitly disabled in settings
+    n8n_enabled = settings.get("n8n_enabled")
 
-    # Fall back to env vars if settings not configured
-    if not n8n_url:
-        n8n_url = os.environ.get("N8N_MCP_URL")
-        n8n_token = os.environ.get("N8N_MCP_TOKEN")
+    # If n8n_enabled is explicitly False, don't load n8n
+    if n8n_enabled is False:
+        logger.info("n8n disabled in settings - n8n MCP tools will not be available")
+        n8n_url = None
+        n8n_token = None
+    else:
+        # Try settings first
+        n8n_url = settings.get("n8n_url") if n8n_enabled else None
+        n8n_token = settings.get("n8n_token") if n8n_enabled else None
+
+        # Fall back to env vars if settings not configured (legacy support)
+        if not n8n_url:
+            n8n_url = os.environ.get("N8N_MCP_URL")
+            n8n_token = os.environ.get("N8N_MCP_TOKEN")
 
     if n8n_url:
         servers.append(MCPServerConfig(
@@ -143,18 +158,29 @@ def load_mcp_config(settings: dict[str, Any] | None = None) -> list[MCPServerCon
     return servers
 
 
+@dataclass
+class MCPInitError:
+    """Error from MCP server initialization."""
+
+    name: str
+    error: str
+
+
 async def initialize_mcp_servers(
-    configs: list[MCPServerConfig]
-) -> dict[str, mcp.MCPServerHTTP]:
+    configs: list[MCPServerConfig],
+) -> tuple[dict[str, mcp.MCPServerHTTP], list[MCPInitError]]:
     """Initialize MCP servers from config list.
 
     Args:
         configs: List of MCPServerConfig objects
 
     Returns:
-        Dict mapping server name to initialized MCPServerHTTP instance
+        Tuple of (servers_dict, errors_list) where:
+        - servers_dict maps server name to initialized MCPServerHTTP instance
+        - errors_list contains MCPInitError for any servers that failed
     """
     servers = {}
+    errors = []
 
     for config in configs:
         try:
@@ -176,11 +202,44 @@ async def initialize_mcp_servers(
                 server._use_streamable_http = False
             # If transport not specified, let LiveKit auto-detect from URL
 
+            # Pre-flight connection test with httpx (reliable timeout)
+            # This prevents the MCP library from hanging on bad connections
+            async with httpx.AsyncClient(timeout=CONNECTION_TEST_TIMEOUT) as client:
+                try:
+                    resp = await client.post(
+                        config.url,
+                        headers=headers if headers else None,
+                        json={"jsonrpc": "2.0", "method": "ping", "id": 1},
+                    )
+                    # 401/403 = auth issue, other 4xx/5xx = server issue
+                    if resp.status_code == 401:
+                        raise httpx.HTTPStatusError(
+                            "Unauthorized - check your token",
+                            request=resp.request,
+                            response=resp,
+                        )
+                    elif resp.status_code == 403:
+                        raise httpx.HTTPStatusError(
+                            "Forbidden - check your token permissions",
+                            request=resp.request,
+                            response=resp,
+                        )
+                except httpx.TimeoutException:
+                    raise TimeoutError(f"Connection timed out after {CONNECTION_TEST_TIMEOUT}s")
+
+            # Initialize MCP server (connection already validated)
             await server.initialize()
             servers[config.name] = server
             logger.info(f"Initialized MCP server: {config.name}")
 
-        except Exception as e:
-            logger.error(f"Failed to initialize MCP server {config.name}: {e}", exc_info=True)
+        except TimeoutError:
+            error_msg = f"Connection timed out after {CONNECTION_TEST_TIMEOUT}s"
+            logger.error(f"Failed to initialize MCP server {config.name}: {error_msg}")
+            errors.append(MCPInitError(name=config.name, error=error_msg))
 
-    return servers
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Failed to initialize MCP server {config.name}: {error_msg}")
+            errors.append(MCPInitError(name=config.name, error=error_msg))
+
+    return servers, errors

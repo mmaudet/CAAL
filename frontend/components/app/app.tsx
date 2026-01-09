@@ -10,6 +10,7 @@ import { WakeWordProvider } from '@/components/app/wake-word-provider';
 import { Toaster } from '@/components/livekit/toaster';
 import { SetupWizard } from '@/components/setup';
 // import { useAgentErrors } from '@/hooks/useAgentErrors';
+import { useConnectionErrors } from '@/hooks/useConnectionErrors';
 import { useDebugMode } from '@/hooks/useDebug';
 import { getSandboxTokenSource } from '@/lib/utils';
 
@@ -21,6 +22,7 @@ const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 function AppSetup() {
   useDebugMode({ enabled: IN_DEVELOPMENT });
   // useAgentErrors(); // Disabled for multi-device support - timeout breaks second device
+  useConnectionErrors(); // Show MCP connection errors from agent
 
   return null;
 }

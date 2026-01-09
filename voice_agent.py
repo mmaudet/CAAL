@@ -156,67 +156,26 @@ def load_prompt() -> str:
 ToolStatusCallback = callable  # async (bool, list[str], list[dict]) -> None
 
 
-class VoiceAssistant(WebSearchTools, Agent):
-    """Voice assistant with MCP tools and web search."""
+# =========================================================================
+# Home Assistant Wrapper Tools
+# =========================================================================
+# These provide a simplified interface to HASS MCP, matching the n8n
+# hass_control workflow signature for prompt compatibility.
+# Tools are only added when Home Assistant is connected.
 
-    def __init__(
-        self,
-        caal_llm: CAALLLM,
-        mcp_servers: dict[str, mcp.MCPServerHTTP] | None = None,
-        n8n_workflow_tools: list[dict] | None = None,
-        n8n_workflow_name_map: dict[str, str] | None = None,
-        n8n_base_url: str | None = None,
-        on_tool_status: ToolStatusCallback | None = None,
-        tool_cache_size: int = 3,
-        max_turns: int = 20,
-    ) -> None:
-        super().__init__(
-            instructions=load_prompt(),
-            llm=caal_llm,  # Satisfies LLM interface requirement
-        )
 
-        # Store provider for llm_node access
-        self._provider = caal_llm.provider_instance
+def create_hass_tools(hass_server: mcp.MCPServerHTTP) -> tuple[list[dict], dict]:
+    """Create Home Assistant tools bound to the given MCP server.
 
-        # All MCP servers (for multi-MCP support)
-        # Named _caal_mcp_servers to avoid conflict with LiveKit's internal _mcp_servers handling
-        self._caal_mcp_servers = mcp_servers or {}
-
-        # n8n-specific for workflow execution (n8n uses webhook-based execution)
-        self._n8n_workflow_tools = n8n_workflow_tools or []
-        self._n8n_workflow_name_map = n8n_workflow_name_map or {}
-        self._n8n_base_url = n8n_base_url
-
-        # Callback for publishing tool status to frontend
-        self._on_tool_status = on_tool_status
-
-        # Context management: tool data cache and sliding window
-        self._tool_data_cache = ToolDataCache(max_entries=tool_cache_size)
-        self._max_turns = max_turns
-
-    async def llm_node(self, chat_ctx, tools, model_settings):
-        """Custom LLM node using provider-agnostic interface."""
-        async for chunk in llm_node(
-            self,
-            chat_ctx,
-            provider=self._provider,
-            tool_data_cache=self._tool_data_cache,
-            max_turns=self._max_turns,
-        ):
-            yield chunk
-
-    # =========================================================================
-    # Home Assistant Wrapper Tools
-    # =========================================================================
-    # These provide a simplified interface to HASS MCP, matching the n8n
-    # hass_control workflow signature for prompt compatibility.
-
-    @function_tool
-    async def hass_control(self, action: str, target: str, value: int = None) -> str:
+    Returns:
+        tuple: (tool_definitions, tool_callables)
+        - tool_definitions: List of tool definitions in OpenAI format for LLM
+        - tool_callables: Dict mapping tool name to callable function
+    """
+    async def hass_control(action: str, target: str, value: int = None) -> str:
         """Control Home Assistant devices.
         Parameters: action (required: turn_on, turn_off, volume_up, volume_down, set_volume, mute, unmute, pause, play, next, previous), target (required: device name), value (optional: for set_volume 0-100).
         """
-        hass_server = self._caal_mcp_servers.get("home_assistant")
         if not hass_server or not hasattr(hass_server, "_client"):
             return "Home Assistant is not connected"
 
@@ -256,12 +215,10 @@ class VoiceAssistant(WebSearchTools, Agent):
             logger.error(f"hass_control error: {e}")
             return f"Failed to {action} {target}: {e}"
 
-    @function_tool
-    async def hass_get_state(self, target: str = None) -> str:
+    async def hass_get_state(target: str = None) -> str:
         """Get the current state of Home Assistant devices.
         Parameters: target (optional: device name to filter, or omit for all devices).
         """
-        hass_server = self._caal_mcp_servers.get("home_assistant")
         if not hass_server or not hasattr(hass_server, "_client"):
             return "Home Assistant is not connected"
 
@@ -301,6 +258,104 @@ class VoiceAssistant(WebSearchTools, Agent):
             logger.error(f"hass_get_state error: {e}")
             return f"Failed to get state: {e}"
 
+    # Tool definitions in OpenAI format for LLM
+    tool_definitions = [
+        {
+            "type": "function",
+            "function": {
+                "name": "hass_control",
+                "description": "Control Home Assistant devices. Parameters: action (required: turn_on, turn_off, volume_up, volume_down, set_volume, mute, unmute, pause, play, next, previous), target (required: device name), value (optional: for set_volume 0-100).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "action": {"type": "string"},
+                        "target": {"type": "string"},
+                        "value": {"type": "integer"},
+                    },
+                    "required": ["action", "target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "hass_get_state",
+                "description": "Get the current state of Home Assistant devices. Parameters: target (optional: device name to filter, or omit for all devices).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {"type": "string"},
+                    },
+                    "required": [],
+                },
+            },
+        },
+    ]
+
+    # Callable functions for tool execution
+    tool_callables = {
+        "hass_control": hass_control,
+        "hass_get_state": hass_get_state,
+    }
+
+    return tool_definitions, tool_callables
+
+
+class VoiceAssistant(WebSearchTools, Agent):
+    """Voice assistant with MCP tools and web search."""
+
+    def __init__(
+        self,
+        caal_llm: CAALLLM,
+        mcp_servers: dict[str, mcp.MCPServerHTTP] | None = None,
+        n8n_workflow_tools: list[dict] | None = None,
+        n8n_workflow_name_map: dict[str, str] | None = None,
+        n8n_base_url: str | None = None,
+        on_tool_status: ToolStatusCallback | None = None,
+        tool_cache_size: int = 3,
+        max_turns: int = 20,
+        hass_tool_definitions: list[dict] | None = None,
+        hass_tool_callables: dict | None = None,
+    ) -> None:
+        super().__init__(
+            instructions=load_prompt(),
+            llm=caal_llm,  # Satisfies LLM interface requirement
+        )
+
+        # Store provider for llm_node access
+        self._provider = caal_llm.provider_instance
+
+        # All MCP servers (for multi-MCP support)
+        # Named _caal_mcp_servers to avoid conflict with LiveKit's internal _mcp_servers handling
+        self._caal_mcp_servers = mcp_servers or {}
+
+        # n8n-specific for workflow execution (n8n uses webhook-based execution)
+        self._n8n_workflow_tools = n8n_workflow_tools or []
+        self._n8n_workflow_name_map = n8n_workflow_name_map or {}
+        self._n8n_base_url = n8n_base_url
+
+        # Home Assistant tools (only if HASS is connected)
+        self._hass_tool_definitions = hass_tool_definitions or []
+        self._hass_tool_callables = hass_tool_callables or {}
+
+        # Callback for publishing tool status to frontend
+        self._on_tool_status = on_tool_status
+
+        # Context management: tool data cache and sliding window
+        self._tool_data_cache = ToolDataCache(max_entries=tool_cache_size)
+        self._max_turns = max_turns
+
+    async def llm_node(self, chat_ctx, tools, model_settings):
+        """Custom LLM node using provider-agnostic interface."""
+        async for chunk in llm_node(
+            self,
+            chat_ctx,
+            provider=self._provider,
+            tool_data_cache=self._tool_data_cache,
+            max_turns=self._max_turns,
+        ):
+            yield chunk
+
 
 # =============================================================================
 # Agent Entrypoint
@@ -316,12 +371,40 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
     # Load MCP servers from config
     mcp_servers = {}
+    mcp_errors = []
     try:
         mcp_configs = load_mcp_config()
-        mcp_servers = await initialize_mcp_servers(mcp_configs)
+        mcp_servers, mcp_errors = await initialize_mcp_servers(mcp_configs)
     except Exception as e:
         logger.error(f"Failed to load MCP config: {e}")
         mcp_configs = []  # Ensure mcp_configs is defined for later use
+
+    # Send MCP connection errors to frontend
+    if mcp_errors:
+        error_messages = []
+        for err in mcp_errors:
+            # Friendly names for known servers
+            if err.name == "n8n":
+                error_messages.append("n8n enabled but could not connect - check URL and token in Settings")
+            elif err.name == "home_assistant":
+                error_messages.append("Home Assistant enabled but could not connect - check URL and token in Settings")
+            else:
+                error_messages.append(f"MCP server '{err.name}' failed to connect: {err.error}")
+
+        # Send error to frontend via data channel
+        import json as json_module
+        payload = json_module.dumps({
+            "type": "mcp_error",
+            "errors": error_messages,
+        })
+        try:
+            await ctx.room.local_participant.publish_data(
+                payload.encode("utf-8"),
+                reliable=True,
+                topic="mcp_error",
+            )
+        except Exception as e:
+            logger.error(f"Failed to send MCP error to frontend: {e}")
 
     # Discover n8n workflows (n8n uses webhook-based execution, not MCP tools)
     n8n_workflow_tools = []
@@ -550,6 +633,14 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
     # ==========================================================================
 
+    # Create HASS tools only if Home Assistant is connected
+    hass_tool_definitions = []
+    hass_tool_callables = {}
+    hass_server = mcp_servers.get("home_assistant")
+    if hass_server:
+        hass_tool_definitions, hass_tool_callables = create_hass_tools(hass_server)
+        logger.info("Home Assistant tools enabled: hass_control, hass_get_state")
+
     # Create agent with CAALLLM and all MCP servers
     assistant = VoiceAssistant(
         caal_llm=caal_llm,
@@ -560,6 +651,8 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         on_tool_status=_publish_tool_status,
         tool_cache_size=runtime["tool_cache_size"],
         max_turns=runtime["max_turns"],
+        hass_tool_definitions=hass_tool_definitions,
+        hass_tool_callables=hass_tool_callables,
     )
 
     # Create event to wait for session close (BEFORE session.start to avoid race condition)
