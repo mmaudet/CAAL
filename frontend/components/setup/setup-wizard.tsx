@@ -54,6 +54,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<SetupData>(INITIAL_DATA);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   const updateData = (updates: Partial<SetupData>) => {
@@ -111,12 +112,11 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
       // Download Piper model if using Piper
       if (finalData.tts_provider === 'piper' && finalData.tts_voice_piper) {
-        fetch('/api/download-piper-model', {
+        setSaveStatus('Downloading voice model...');
+        await fetch('/api/download-piper-model', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model_id: finalData.tts_voice_piper }),
-        }).catch(() => {
-          // Non-critical - model can be downloaded later
         });
       }
 
@@ -201,7 +201,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
           <div className="flex gap-2">
             {isLastStep ? (
               <Button variant="primary" onClick={handleComplete} disabled={saving || !canProceed()}>
-                {saving ? 'Saving...' : 'Finish Setup'}
+                {saving ? saveStatus || 'Saving...' : 'Finish Setup'}
               </Button>
             ) : (
               <Button variant="primary" onClick={handleNext} disabled={!canProceed()}>
