@@ -687,7 +687,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <p className="text-xs text-green-500">{groqModels.length} models available</p>
               )}
               {!groqApiKey && settings.groq_model && groqTest.status === 'idle' && (
-                <p className="text-xs text-green-500">API key configured (enter new key to change)</p>
+                <p className="text-xs text-green-500">
+                  API key configured (enter new key to change)
+                </p>
               )}
               <p className="text-muted-foreground text-xs">
                 Get your API key at{' '}
