@@ -190,10 +190,12 @@ See `.env.example` for additional options (ports, default models).
 
 After setup, click the gear icon to access the settings panel:
 
-- **Providers** - Switch between Ollama/Groq (LLM) and Kokoro/Piper (TTS)
-- **Integrations** - Configure Home Assistant and n8n connections
-- **Wake Word** - Enable/disable and customize wake greetings
-- **Prompt** - Customize the system prompt
+- **Agent** - Agent name, voice selection, wake greetings
+- **Prompt** - Default or custom system prompt
+- **Providers** - LLM provider (Ollama/Groq), TTS provider (Kokoro/Piper)
+- **LLM Settings** - Temperature, context size, max turns, turn detection settings
+- **Integrations** - Home Assistant and n8n connection configuration
+- **Wake Word** - Enable/disable, model selection, threshold, timeout
 
 ---
 
@@ -232,9 +234,7 @@ nano config.env  # Set your n8n IP and API key
 python setup.py  # Creates all workflows
 ```
 
-See `n8n-workflows/README.md` for included workflows.
-
->**Note:** CAAL looks at the 'Notes' section of the Webhook node for tool use instructions.
+See [docs/N8N-WORKFLOWS.md](docs/N8N-WORKFLOWS.md) for how to create your own workflows.
 
 ### Wake Word Detection
 
