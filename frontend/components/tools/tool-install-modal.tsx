@@ -214,7 +214,7 @@ export function ToolInstallModal({ tool, onClose, onInstallComplete }: ToolInsta
                   type="text"
                   value={credentials[c.name] || ''}
                   onChange={(e) => setCredentials({ ...credentials, [c.name]: e.target.value })}
-                  placeholder={c.name}
+                  placeholder="Enter n8n credential name"
                   className="border-input bg-background w-full rounded-lg border px-4 py-3 text-sm"
                 />
               </div>
