@@ -367,7 +367,8 @@ export function sanitizeWorkflow(workflow: WorkflowData): SanitizationResult {
 
     return {
       name: varName,
-      example: rl.value,
+      // DON'T send user's actual value - use generic placeholder
+      // The VPS LLM may suggest a better variable name based on context
       description: `Your ${fieldName} identifier`,
     };
   });
