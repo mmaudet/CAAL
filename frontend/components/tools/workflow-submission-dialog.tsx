@@ -112,6 +112,20 @@ export function WorkflowSubmissionDialog({
             </div>
           )}
 
+          {/* Private URLs detected */}
+          {detected.private_urls && detected.private_urls.length > 0 && (
+            <div className="bg-muted/50 rounded-lg border p-4">
+              <p className="mb-2 font-medium">Private network URLs (will be parameterized):</p>
+              <ul className="space-y-1 text-sm">
+                {detected.private_urls.map((url, i) => (
+                  <li key={i} className="text-muted-foreground font-mono">
+                    {url}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Warnings */}
           {warnings.length > 0 && (
             <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">

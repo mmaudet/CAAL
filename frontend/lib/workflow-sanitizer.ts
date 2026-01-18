@@ -20,6 +20,7 @@ export interface SanitizationResult {
       example?: string; // Optional - credential variables don't have examples
       description: string;
     }>;
+    private_urls: string[]; // Private network URLs that will be parameterized by VPS
     secrets_stripped: {
       api_keys: number;
       tokens: number;
@@ -58,9 +59,10 @@ const EXPRESSION_SECRET_PATTERNS = [
   { name: 'Binary secret field', regex: /\{\{.*\$binary\.(?:key|token|secret).*\}\}/gi },
 ] as const;
 
-// URL pattern to detect hardcoded URLs
-const URL_PATTERN = /https?:\/\/[\d.]+(?::\d+)?/g;
-const LOCALHOST_PATTERN = /https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/g;
+// Private network IP patterns (RFC 1918)
+// 10.0.0.0 - 10.255.255.255, 172.16.0.0 - 172.31.255.255, 192.168.0.0 - 192.168.255.255
+const PRIVATE_IP_URL_PATTERN =
+  /https?:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})(?::\d+)?(?:\/[^\s"']*)?/g;
 
 /**
  * Recursively find all __rl (resource locator) fields with mode: "list"
@@ -208,12 +210,30 @@ function detectCodeNodeSecrets(workflow: WorkflowData): {
 }
 
 /**
- * Detect hardcoded URLs in workflow
+ * Detect private network URLs in workflow (RFC 1918 addresses)
+ * These will be parameterized by the VPS LLM
  */
-function detectUrls(workflowStr: string): string[] {
-  const urlMatches = workflowStr.match(URL_PATTERN) || [];
-  const uniqueUrls = [...new Set(urlMatches)].filter((url) => !LOCALHOST_PATTERN.test(url));
-  return uniqueUrls;
+function detectPrivateUrls(workflowStr: string): string[] {
+  const urlMatches = workflowStr.match(PRIVATE_IP_URL_PATTERN) || [];
+
+  // Extract unique base URLs (origin only - scheme + host + port)
+  // Filter out URLs where the HOST itself contains expressions (already parameterized)
+  const baseUrls = new Set<string>();
+
+  for (const fullUrl of urlMatches) {
+    // Extract origin (everything before the first / after the port)
+    // Pattern: http(s)://ip:port or http(s)://ip
+    const originMatch = fullUrl.match(/^https?:\/\/[^/]+/);
+    if (originMatch) {
+      const origin = originMatch[0];
+      // Only skip if the origin itself contains expressions
+      if (!origin.includes('${') && !origin.includes('{{')) {
+        baseUrls.add(origin);
+      }
+    }
+  }
+
+  return [...baseUrls];
 }
 
 /**
@@ -336,22 +356,8 @@ export function sanitizeWorkflow(workflow: WorkflowData): SanitizationResult {
     );
   }
 
-  // 3. Detect URLs for variable replacement
-  const urls = detectUrls(workflowStr);
-  const urlVariables = urls.map((url) => {
-    // Generate variable name from URL (e.g., http://192.168.1.100:5000 -> SERVICE_URL)
-    const hostname = url.replace(/https?:\/\//, '').split(':')[0];
-    const isIp = /^\d+\.\d+\.\d+\.\d+$/.test(hostname);
-    const varName = isIp
-      ? 'SERVICE_URL'
-      : hostname.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_URL';
-
-    return {
-      name: varName,
-      example: url,
-      description: 'Your service URL',
-    };
-  });
+  // 3. Detect private network URLs (will be parameterized by VPS LLM)
+  const privateUrls = detectPrivateUrls(workflowStr);
 
   // 4. Detect resource locators (dropdown selections)
   const resourceLocators = findResourceLocators(sanitized);
@@ -369,25 +375,18 @@ export function sanitizeWorkflow(workflow: WorkflowData): SanitizationResult {
   // 5. Extract credentials
   const credentials = extractCredentials(sanitized);
 
-  // 6. Replace URLs with variable placeholders
-  let sanitizedStr = JSON.stringify(sanitized);
-  for (const { name, example } of urlVariables) {
-    sanitizedStr = sanitizedStr.split(example).join(`\${${name}}`);
-  }
-  sanitized = JSON.parse(sanitizedStr);
-
-  // 7. Convert resource locators to id mode with variable placeholders
+  // 6. Convert resource locators to id mode with variable placeholders
   for (let i = 0; i < resourceLocators.length; i++) {
     const rl = resourceLocators[i];
     const variable = rlVariables[i];
     setNestedProperty(sanitized, rl.path, convertResourceLocatorToId(`\${${variable.name}}`));
   }
 
-  // 8. Parameterize credentials (nullify IDs and replace names with variables)
+  // 7. Parameterize credentials (nullify IDs and replace names with variables)
   const { workflow: sanitizedWithCreds } = parameterizeCredentials(sanitized);
   sanitized = sanitizedWithCreds;
 
-  // 9. Check for webhook description
+  // 8. Check for webhook description
   const webhookNode = sanitized.nodes?.find(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (n: any) => n.type === 'n8n-nodes-base.webhook' || n.type?.includes('webhook')
@@ -403,7 +402,8 @@ export function sanitizeWorkflow(workflow: WorkflowData): SanitizationResult {
     sanitized,
     detected: {
       credentials,
-      variables: [...urlVariables, ...rlVariables],
+      variables: rlVariables, // Resource locators only - URLs handled by VPS
+      private_urls: privateUrls, // Private network URLs for modal display
       secrets_stripped: {
         api_keys: secrets.api_keys + codeNodeSecrets.api_keys,
         tokens: secrets.tokens + codeNodeSecrets.tokens,
