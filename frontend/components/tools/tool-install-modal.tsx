@@ -175,6 +175,7 @@ export function ToolInstallModal({ tool, onClose, onInstallComplete }: ToolInsta
                   placeholder={v.example}
                   className="border-input bg-background w-full rounded-lg border px-4 py-3 text-sm"
                 />
+                {v.hint && <p className="text-muted-foreground text-xs">{v.hint}</p>}
               </div>
             ))}
             {error && <p className="text-sm text-red-500">{error}</p>}

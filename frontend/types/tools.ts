@@ -4,6 +4,7 @@ export interface RequiredVariable {
   name: string;
   description: string;
   example: string;
+  hint?: string; // "Where to find" guidance for users
 }
 
 export interface RequiredCredential {
