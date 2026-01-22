@@ -1,4 +1,4 @@
-import { Gear, Sparkle } from '@phosphor-icons/react/dist/ssr';
+import { Gear, Wrench } from '@phosphor-icons/react/dist/ssr';
 import { Button } from '@/components/livekit/button';
 
 function WelcomeImage() {
@@ -41,9 +41,9 @@ export const WelcomeView = ({
           <button
             onClick={onOpenTools}
             className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2 transition-colors"
-            title="Skills"
+            title="Tools"
           >
-            <Sparkle className="h-6 w-6" weight="fill" />
+            <Wrench className="h-6 w-6" weight="fill" />
           </button>
         )}
         {onOpenSettings && (

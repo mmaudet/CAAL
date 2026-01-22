@@ -119,7 +119,7 @@ export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
         <header className="section-divider shrink-0">
           <div className="flex items-center justify-between px-6 py-5">
             <div>
-              <h1 className="text-2xl font-bold">Skills</h1>
+              <h1 className="text-2xl font-bold">Tools</h1>
               <p className="text-muted-foreground text-sm">Expand what CAAL can do</p>
             </div>
             <button

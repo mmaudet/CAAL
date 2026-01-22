@@ -38,7 +38,7 @@ export function WorkflowDetailModal({
         <div className="flex shrink-0 items-start justify-between border-b p-6">
           <div>
             <h2 className="text-2xl font-bold">{workflow.name}</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Custom Workflow</p>
+            <p className="text-muted-foreground mt-1 text-sm">Custom Tool</p>
           </div>
           <button
             onClick={onClose}
@@ -105,7 +105,7 @@ export function WorkflowDetailModal({
 
             {/* Workflow URL */}
             <div>
-              <h3 className="mb-2 text-sm font-medium">Workflow</h3>
+              <h3 className="mb-2 text-sm font-medium">n8n Workflow</h3>
               <a
                 href={workflowUrl}
                 target="_blank"
@@ -119,8 +119,9 @@ export function WorkflowDetailModal({
             {/* Info box */}
             <div className="bg-muted/50 rounded-lg border p-4">
               <p className="text-sm">
-                This is a custom workflow not published to the CAAL Tool Registry. Share it to help
-                others discover and use your workflow.
+                This is a custom tool not published to the CAAL Tool Registry. Share it to help
+                others discover and use this tool. All keys, ids, and private URLs will be stripped
+                automatically.
               </p>
             </div>
           </div>
