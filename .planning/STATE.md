@@ -5,36 +5,36 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** A French-speaking user can interact with CAAL entirely in French with no English friction
-**Current focus:** Phase 2 - Frontend i18n (IN PROGRESS)
+**Current focus:** Phase 2 - Frontend i18n (COMPLETE)
 
 ## Current Position
 
 Phase: 2 of 4 (Frontend i18n)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-25 - Completed 02-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-25 - Completed 02-02-PLAN.md
 
-Progress: [##--------] 25% (2/8 plans)
+Progress: [###-------] 37% (3/8 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 4 min
-- Total execution time: 8 min
+- Total plans completed: 3
+- Average duration: 5 min
+- Total execution time: 14 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Foundation | 1/1 | 4 min | 4 min |
-| 2. Frontend i18n | 1/2 | 4 min | 4 min |
+| 2. Frontend i18n | 2/2 | 10 min | 5 min |
 | 3. Mobile i18n | 0/2 | - | - |
 | 4. Voice Pipeline | 0/3 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 4 min
-- Trend: Stable at ~4 min/plan
+- Last 5 plans: 4 min, 4 min, 6 min
+- Trend: Stable at ~5 min/plan
 
 *Updated after each plan completion*
 
@@ -52,6 +52,8 @@ Recent decisions affecting current work:
 - Language field in SetupCompleteRequest is optional for backward compatibility - from 01-01
 - Cookie-based locale (CAAL_LOCALE) instead of URL routing - from 02-01
 - English messages as base with locale overlay for fallback - from 02-01
+- Technical terms stay in English: Ollama, Groq, Kokoro, Piper, STT, TTS, LLM, API, n8n - from 02-02
+- Language selector in Agent tab with save/cookie/reload flow - from 02-02
 
 ### Pending Todos
 
@@ -64,6 +66,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-25T18:24:00Z
-Stopped at: Completed 02-01-PLAN.md (next-intl Infrastructure)
+Last session: 2026-01-25T18:30:05Z
+Stopped at: Completed 02-02-PLAN.md (UI Localization)
 Resume file: None
