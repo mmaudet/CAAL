@@ -9,9 +9,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Global `language` setting in settings.json with ISO 639-1 code (en, fr)
-- [ ] **INFRA-02**: Language setting propagates to all components (STT, TTS, prompts, UI)
-- [ ] **INFRA-03**: Backward compatibility with existing English-only installations
+- [x] **INFRA-01**: Global `language` setting in settings.json with ISO 639-1 code (en, fr)
+- [x] **INFRA-02**: Language setting propagates to all components (STT, TTS, prompts, UI)
+- [x] **INFRA-03**: Backward compatibility with existing English-only installations
 
 ### Frontend (Next.js)
 
@@ -73,9 +73,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
-| INFRA-03 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Complete |
+| INFRA-02 | Phase 1 | Complete |
+| INFRA-03 | Phase 1 | Complete |
 | FRONT-01 | Phase 2 | Pending |
 | FRONT-02 | Phase 2 | Pending |
 | FRONT-03 | Phase 2 | Pending |
