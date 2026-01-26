@@ -337,6 +337,7 @@ class VoiceAssistant(WebSearchTools, Agent):
     def __init__(
         self,
         caal_llm: CAALLLM,
+        language: str = "en",
         mcp_servers: dict[str, mcp.MCPServerHTTP] | None = None,
         n8n_workflow_tools: list[dict] | None = None,
         n8n_workflow_name_map: dict[str, str] | None = None,
@@ -348,7 +349,7 @@ class VoiceAssistant(WebSearchTools, Agent):
         hass_tool_callables: dict | None = None,
     ) -> None:
         super().__init__(
-            instructions=load_prompt(),
+            instructions=load_prompt(language=language),
             llm=caal_llm,  # Satisfies LLM interface requirement
         )
 
@@ -467,14 +468,17 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     # Create CAALLLM instance (provider-agnostic wrapper)
     caal_llm = CAALLLM.from_settings(runtime)
 
+    language = runtime["language"]
+
     # Log configuration
     logger.info("=" * 60)
     logger.info("STARTING VOICE AGENT")
     logger.info("=" * 60)
+    logger.info(f"  Language: {language}")
     if runtime["stt_provider"] == "groq":
-        logger.info("  STT: Groq (whisper-large-v3-turbo)")
+        logger.info(f"  STT: Groq (whisper-large-v3-turbo, lang={language})")
     else:
-        logger.info(f"  STT: {SPEACHES_URL} ({WHISPER_MODEL})")
+        logger.info(f"  STT: {SPEACHES_URL} ({WHISPER_MODEL}, lang={language})")
     if runtime["tts_provider"] == "piper":
         logger.info(f"  TTS: Piper ({runtime['tts_voice_piper']})")
     else:
@@ -498,13 +502,14 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     if runtime["stt_provider"] == "groq":
         base_stt = groq_plugin.STT(
             model="whisper-large-v3-turbo",
-            language="en",
+            language=language,
         )
     else:
         base_stt = openai.STT(
             base_url=f"{SPEACHES_URL}/v1",
             api_key="not-needed",  # Speaches doesn't require auth
             model=WHISPER_MODEL,
+            language=language,
         )
 
     # Load wake word settings
@@ -516,7 +521,6 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
     if wake_word_enabled:
         import json
-        import random
 
         wake_word_model = all_settings.get("wake_word_model", "models/hey_jarvis.onnx")
         wake_word_threshold = all_settings.get("wake_word_threshold", 0.5)
@@ -581,12 +585,23 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         logger.info("  Wake word: disabled")
 
     # Create TTS instance based on provider
-    if runtime["tts_provider"] == "piper":
-        # Piper runs through Speaches container - voice is baked into model ID
+    tts_provider = runtime["tts_provider"]
+
+    # Auto-switch from Kokoro to Piper for non-English languages
+    # (Kokoro has limited multilingual support)
+    if tts_provider == "kokoro" and language != "en":
+        logger.warning(
+            f"Kokoro TTS has limited {language} support, auto-switching to Piper"
+        )
+        tts_provider = "piper"
+
+    if tts_provider == "piper":
+        # Select Piper voice based on language, fall back to English
+        piper_voice = PIPER_VOICE_MAP.get(language, PIPER_VOICE_MAP["en"])
         tts_instance = openai.TTS(
             base_url=f"{SPEACHES_URL}/v1",
             api_key="not-needed",
-            model=runtime["tts_voice_piper"],  # e.g., "speaches-ai/piper-en_US-ljspeech-medium"
+            model=piper_voice,
             voice="default",  # Ignored by Piper but required by API
         )
     else:
@@ -674,6 +689,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     # Create agent with CAALLLM and all MCP servers
     assistant = VoiceAssistant(
         caal_llm=caal_llm,
+        language=language,
         mcp_servers=mcp_servers,
         n8n_workflow_tools=n8n_workflow_tools,
         n8n_workflow_name_map=n8n_workflow_name_map,
