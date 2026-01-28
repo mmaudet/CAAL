@@ -9,6 +9,7 @@ import { ViewController } from '@/components/app/view-controller';
 import { WakeWordProvider } from '@/components/app/wake-word-provider';
 import { Toaster } from '@/components/livekit/toaster';
 import { SetupWizard } from '@/components/setup';
+import { useCaalTheme } from '@/hooks/useCaalTheme';
 // import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useConnectionErrors } from '@/hooks/useConnectionErrors';
 import { useDebugMode } from '@/hooks/useDebug';
@@ -33,6 +34,9 @@ interface AppProps {
 
 export function App({ appConfig }: AppProps) {
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
+
+  // Initialize CAAL theme from saved settings
+  useCaalTheme();
 
   // Check setup status on mount
   useEffect(() => {

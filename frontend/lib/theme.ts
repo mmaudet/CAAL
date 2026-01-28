@@ -104,13 +104,47 @@ export const midnightTheme: Theme = {
 };
 
 /**
+ * Light Theme - Clean light surfaces inspired by code 3.html
+ * Modern, airy design with subtle shadows instead of heavy borders
+ */
+export const lightTheme: Theme = {
+  name: 'Light',
+  colors: {
+    // Surface elevation - light grays (inverted from dark themes)
+    surfaceDeep: '#e2e8f0', // slate-200 - modal backdrops
+    surface0: '#f8fafc', // slate-50 - main background
+    surface1: '#ffffff', // white - panels
+    surface2: '#ffffff', // white - cards, inputs
+    surface3: '#f1f5f9', // slate-100 - hover states
+    surface4: '#e2e8f0', // slate-200 - pressed/active states
+
+    // Primary colors - same vibrant emerald
+    primaryBg: '#3fb184',
+    primaryText: '#3fb184',
+    primary: '#3fb184',
+
+    // Semantic colors
+    background: '#f8fafc', // slate-50
+    foreground: '#0f172a', // slate-900
+    muted: '#f1f5f9', // slate-100
+    mutedForeground: '#64748b', // slate-500
+
+    // Borders - black-based opacity for light mode
+    borderSubtle: 'oklch(0 0 0 / 6%)',
+    borderDefault: 'oklch(0 0 0 / 10%)',
+    borderEmphasis: 'oklch(0 0 0 / 15%)',
+    borderTopHighlight: 'oklch(1 0 0 / 0%)', // Not needed for light theme
+  },
+};
+
+/**
  * Available themes
  * Add new themes here as they're developed
  */
 export const themes = {
   midnight: midnightTheme,
   greySlate: greySlateTheme,
-  // light: lightTheme,           // TODO: Build from code 3.html
+  light: lightTheme,
 } as const;
 
 export type ThemeName = keyof typeof themes;

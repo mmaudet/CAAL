@@ -32,6 +32,8 @@ PROMPT_DIR = Path(os.getenv("CAAL_PROMPT_DIR", _SCRIPT_DIR / "prompt"))
 DEFAULT_SETTINGS = {
     # First-launch flag
     "first_launch_completed": False,
+    # UI preferences
+    "theme": "midnight",  # "midnight" | "greySlate" | "light"
     # Agent identity
     "agent_name": "Cal",
     "prompt": "default",  # "default" | "custom"
