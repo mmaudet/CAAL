@@ -8,7 +8,7 @@ import { AgentAudioRenderer } from '@/components/app/agent-audio-renderer';
 import { ViewController } from '@/components/app/view-controller';
 import { WakeWordProvider } from '@/components/app/wake-word-provider';
 import { Toaster } from '@/components/livekit/toaster';
-import { SetupWizard } from '@/components/setup';
+import { LanguageSelector, SetupWizard } from '@/components/setup';
 import { useCaalTheme } from '@/hooks/useCaalTheme';
 // import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useConnectionErrors } from '@/hooks/useConnectionErrors';
@@ -34,23 +34,50 @@ interface AppProps {
 
 export function App({ appConfig }: AppProps) {
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
+  const [localeChosen, setLocaleChosen] = useState<boolean | null>(null);
 
   // Initialize CAAL theme from saved settings
   useCaalTheme();
 
-  // Check setup status on mount
+  // Check setup status and sync locale cookie on mount
   useEffect(() => {
-    const checkSetup = async () => {
+    const init = async () => {
+      const hasCookie = document.cookie.includes('CAAL_LOCALE');
+
       try {
         const res = await fetch('/api/setup/status');
         const data = await res.json();
-        setSetupCompleted(data.completed ?? false);
+        const completed = data.completed ?? false;
+
+        // If setup done but no cookie (e.g. new browser), sync from backend settings
+        if (completed && !hasCookie) {
+          try {
+            const settingsRes = await fetch('/api/settings');
+            if (settingsRes.ok) {
+              const settingsData = await settingsRes.json();
+              const lang = settingsData.settings?.language || 'en';
+              document.cookie = `CAAL_LOCALE=${lang};path=/;max-age=31536000;SameSite=Lax`;
+              if (lang !== 'en') {
+                // Reload to pick up non-English locale
+                window.location.reload();
+                return;
+              }
+            }
+          } catch {
+            // Best-effort — default to English
+          }
+          setLocaleChosen(true);
+        } else {
+          setLocaleChosen(hasCookie);
+        }
+
+        setSetupCompleted(completed);
       } catch {
-        // If we can't reach the backend, assume setup not completed
         setSetupCompleted(false);
+        setLocaleChosen(hasCookie);
       }
     };
-    checkSetup();
+    init();
   }, []);
 
   const handleSetupComplete = () => {
@@ -112,13 +139,18 @@ export function App({ appConfig }: AppProps) {
     }
   }, [session]);
 
-  // Show loading state while checking setup status
-  if (setupCompleted === null) {
+  // Show loading state while checking setup status and locale
+  if (setupCompleted === null || localeChosen === null) {
     return (
       <main className="grid h-svh grid-cols-1 place-content-center">
         <div className="text-muted-foreground text-center">Loading...</div>
       </main>
     );
+  }
+
+  // Show language selector before setup wizard (first-time users only)
+  if (!setupCompleted && !localeChosen) {
+    return <LanguageSelector onSelect={() => setLocaleChosen(true)} />;
   }
 
   // Show setup wizard if not completed
