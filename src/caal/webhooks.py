@@ -427,6 +427,10 @@ async def update_settings(req: SettingsUpdateRequest) -> SettingsResponse:
                 continue
             current[key] = value
 
+    # Enforce STT/LLM provider coupling: Ollama→Speaches, Groq→Groq
+    if "llm_provider" in req.settings:
+        current["stt_provider"] = "groq" if current["llm_provider"] == "groq" else "speaches"
+
     # Save merged settings
     settings_module.save_settings(current)
 

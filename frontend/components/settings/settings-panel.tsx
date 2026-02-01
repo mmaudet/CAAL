@@ -777,7 +777,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           style={{ background: 'rgb(from var(--surface-2) r g b / 0.5)' }}
         >
           <button
-            onClick={() => setSettings({ ...settings, llm_provider: 'ollama' })}
+            onClick={() => setSettings({ ...settings, llm_provider: 'ollama', stt_provider: 'speaches' } as Settings)}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               settings.llm_provider === 'ollama'
                 ? 'bg-background text-foreground shadow'
@@ -787,7 +787,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             Ollama
           </button>
           <button
-            onClick={() => setSettings({ ...settings, llm_provider: 'groq' })}
+            onClick={() => setSettings({ ...settings, llm_provider: 'groq', stt_provider: 'groq' } as Settings)}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               settings.llm_provider === 'groq'
                 ? 'bg-background text-foreground shadow'
