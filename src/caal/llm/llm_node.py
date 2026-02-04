@@ -51,9 +51,9 @@ class ToolDataCache:
         self.max_entries = max_entries
         self._cache: list[dict] = []
 
-    def add(self, tool_name: str, data: Any) -> None:
-        """Add tool response data to cache."""
-        entry = {"tool": tool_name, "data": data, "timestamp": time.time()}
+    def add(self, tool_name: str, data: Any, arguments: dict | None = None) -> None:
+        """Add tool call and response data to cache."""
+        entry = {"tool": tool_name, "args": arguments, "data": data, "timestamp": time.time()}
         self._cache.append(entry)
         if len(self._cache) > self.max_entries:
             self._cache.pop(0)  # Remove oldest
@@ -62,9 +62,10 @@ class ToolDataCache:
         """Format cached data as context string for LLM injection."""
         if not self._cache:
             return None
-        parts = ["Recent tool response data for reference:"]
+        parts = ["Recent tool calls and responses for reference:"]
         for entry in self._cache:
-            parts.append(f"\n{entry['tool']}: {json.dumps(entry['data'])}")
+            args = json.dumps(entry['args']) if entry.get('args') else ''
+            parts.append(f"\n{entry['tool']}({args}) → {json.dumps(entry['data'])}")
         return "\n".join(parts)
 
     def clear(self) -> None:
@@ -112,26 +113,85 @@ async def llm_node(
         # Discover tools from agent and MCP servers
         tools = await _discover_tools(agent)
 
-        # If tools available, check for tool calls first (non-streaming)
+        # If tools available, loop non-streaming calls to support chaining
+        # Model can call tool A → get result → call tool B → get result → text
+        max_tool_rounds = 5
+        tool_round = 0
+        all_tool_names: list[str] = []
+        all_tool_params: list[dict] = []
+
         if tools:
-            response = await provider.chat(messages=messages, tools=tools)
+            while tool_round < max_tool_rounds:
+                try:
+                    response = await provider.chat(messages=messages, tools=tools)
+                except Exception as tool_err:
+                    # Tool call generation failed (e.g., model garbled tool name)
+                    err_msg = str(tool_err)
+                    # Wrong tool name — model called a non-existent tool
+                    if "not found" in err_msg:
+                        logger.warning(
+                            f"LLM called non-existent tool: {err_msg}. "
+                            "Falling back to streaming."
+                        )
+                        break
 
-            if response.tool_calls:
-                logger.info(f"LLM returned {len(response.tool_calls)} tool call(s)")
+                    # Garbled tool call — leaked control tokens etc.
+                    is_garbled = (
+                        "tool_use_failed" in err_msg
+                        or "Failed to call a function" in err_msg
+                        or "[/THINK]" in err_msg
+                        or "[TOOL_CALLS]" in err_msg
+                        or "<function=" in err_msg
+                    )
+                    if is_garbled and tool_round == 0:
+                        logger.warning(
+                            f"Malformed tool call, retrying: {err_msg}"
+                        )
+                        try:
+                            response = await provider.chat(
+                                messages=messages, tools=tools
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Retry failed, falling back to streaming"
+                            )
+                            break
+                    elif is_garbled:
+                        logger.warning(
+                            f"Malformed tool call in round {tool_round + 1}, "
+                            "streaming final response"
+                        )
+                        break
+                    else:
+                        raise  # Re-raise non-tool errors
 
-                # Track tool usage for frontend indicator
-                tool_names = [tc.name for tc in response.tool_calls]
-                tool_params = [tc.arguments for tc in response.tool_calls]
+                if not response.tool_calls:
+                    # Model is done with tools
+                    if response.content:
+                        # Don't clear tool status — keep indicator showing
+                        # which tools were used for this response
+                        yield strip_markdown_for_tts(response.content)
+                        return
+                    break  # No content either, fall through to streaming
 
-                # Publish tool status immediately
+                # Execute tool calls
+                tool_round += 1
+                logger.info(
+                    f"Tool round {tool_round}/{max_tool_rounds}: "
+                    f"{len(response.tool_calls)} call(s)"
+                )
+
+                # Accumulate tool usage across rounds for frontend indicator
+                all_tool_names.extend(tc.name for tc in response.tool_calls)
+                all_tool_params.extend(tc.arguments for tc in response.tool_calls)
+
                 if hasattr(agent, "_on_tool_status") and agent._on_tool_status:
                     import asyncio
 
                     asyncio.create_task(
-                        agent._on_tool_status(True, tool_names, tool_params)
+                        agent._on_tool_status(True, all_tool_names, all_tool_params)
                     )
 
-                # Execute tools and get results (cache structured data)
                 messages = await _execute_tool_calls(
                     agent,
                     messages,
@@ -140,36 +200,80 @@ async def llm_node(
                     provider=provider,
                     tool_data_cache=tool_data_cache,
                 )
+                # Loop back — model sees tool results and decides: chain or respond
 
-                # Stream follow-up response with tool results
-                # Pass tools so Ollama can validate tool_calls in message history
-                async for chunk in provider.chat_stream(messages=messages, tools=tools):
-                    yield strip_markdown_for_tts(chunk)
-                return
+            if tool_round >= max_tool_rounds:
+                logger.warning(
+                    f"Hit max tool rounds ({max_tool_rounds}), streaming response"
+                )
 
-            # No tool calls - return content directly
-            elif response.content:
-                # Publish no-tool status immediately
-                if hasattr(agent, "_on_tool_status") and agent._on_tool_status:
-                    import asyncio
-
-                    asyncio.create_task(agent._on_tool_status(False, [], []))
-                yield strip_markdown_for_tts(response.content)
-                return
-
-        # No tools or no tool calls - stream directly
-        # Publish no-tool status immediately
-        if hasattr(agent, "_on_tool_status") and agent._on_tool_status:
+        # Stream final response (after tool chain or no tools)
+        # Only clear tool indicator if no tools were called this turn
+        if tool_round == 0 and hasattr(agent, "_on_tool_status") and agent._on_tool_status:
             import asyncio
 
             asyncio.create_task(agent._on_tool_status(False, [], []))
 
-        async for chunk in provider.chat_stream(messages=messages):
-            yield strip_markdown_for_tts(chunk)
+        if tool_round > 0:
+            # After tool execution — pass tools so Ollama can validate
+            # tool_calls in message history
+            logger.info("Streaming response after tool execution...")
+            try:
+                async for chunk in provider.chat_stream(
+                    messages=messages, tools=tools
+                ):
+                    yield strip_markdown_for_tts(chunk)
+            except Exception as stream_err:
+                # Safety fallback: strip tool messages and retry without tools
+                logger.warning(
+                    f"Post-tool streaming failed: {stream_err}. "
+                    "Retrying with stripped tool messages..."
+                )
+                clean_messages = _strip_tool_messages(messages)
+                async for chunk in provider.chat_stream(messages=clean_messages):
+                    yield strip_markdown_for_tts(chunk)
+        else:
+            # No tools or no tool calls — plain streaming
+            async for chunk in provider.chat_stream(messages=messages):
+                yield strip_markdown_for_tts(chunk)
 
     except Exception as e:
         logger.error(f"Error in llm_node: {e}", exc_info=True)
         yield f"I encountered an error: {e}"
+
+
+def _strip_tool_messages(messages: list[dict]) -> list[dict]:
+    """Convert tool call/result messages to plain text.
+
+    Ollama crashes if messages contain tool references but no tools are
+    registered. This converts tool messages to plain text equivalents,
+    preserving the context so the model knows what happened.
+    """
+    cleaned = []
+    for msg in messages:
+        if msg.get("role") == "tool":
+            # Tool result → system message with the content
+            cleaned.append({
+                "role": "system",
+                "content": f"Tool result: {msg.get('content', '')}",
+            })
+        elif msg.get("role") == "assistant" and msg.get("tool_calls"):
+            # Assistant tool call → plain assistant message
+            parts = []
+            if msg.get("content"):
+                parts.append(msg["content"])
+            for tc in msg["tool_calls"]:
+                func = tc.get("function", {})
+                name = func.get("name", "unknown")
+                args = func.get("arguments", {})
+                parts.append(f"[Called {name} with {args}]")
+            cleaned.append({
+                "role": "assistant",
+                "content": "\n".join(parts),
+            })
+        else:
+            cleaned.append(msg)
+    return cleaned
 
 
 def _build_messages_from_context(
@@ -414,6 +518,18 @@ async def _execute_tool_calls(
     )
     messages.append(tool_call_message)
 
+    # Deduplicate identical tool calls (same name + same args)
+    seen = set()
+    unique_tool_calls = []
+    for tc in tool_calls:
+        key = (tc.name, json.dumps(tc.arguments, sort_keys=True))
+        if key not in seen:
+            seen.add(key)
+            unique_tool_calls.append(tc)
+        else:
+            logger.info(f"Dedup: skipping duplicate {tc.name} call with identical args")
+    tool_calls = unique_tool_calls
+
     # Execute each tool
     for tool_call in tool_calls:
         tool_name = tool_call.name
@@ -431,7 +547,7 @@ async def _execute_tool_calls(
                     or tool_result.get("results")
                     or tool_result
                 )
-                tool_data_cache.add(tool_name, data)
+                tool_data_cache.add(tool_name, data, arguments=arguments)
                 logger.debug(f"Cached tool data for {tool_name}")
 
             # Format tool result - preserve JSON structure for LLM
