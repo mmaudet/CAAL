@@ -20,14 +20,14 @@ Requirements for Tool Registry i18n completion.
 
 ### French Translations
 
-- [ ] **FR-01**: Tools.share.* keys translated in fr.json
-- [ ] **FR-02**: Tools.workflow.* keys translated in fr.json
-- [ ] **FR-03**: French translations use tu/toi register consistently
+- [x] **FR-01**: Tools.share.* keys translated in fr.json
+- [x] **FR-02**: Tools.workflow.* keys translated in fr.json
+- [x] **FR-03**: French translations use tu/toi register consistently
 
 ### Italian Translations
 
-- [ ] **IT-01**: Tools.share.* keys translated in it.json
-- [ ] **IT-02**: Tools.workflow.* keys translated in it.json
+- [x] **IT-01**: Tools.share.* keys translated in it.json
+- [x] **IT-02**: Tools.workflow.* keys translated in it.json
 
 ### Quality Assurance
 
@@ -53,11 +53,11 @@ Requirements for Tool Registry i18n completion.
 | I18N-03 | Phase 5 | Complete |
 | EN-01 | Phase 5 | Complete |
 | EN-02 | Phase 5 | Complete |
-| FR-01 | Phase 6 | Pending |
-| FR-02 | Phase 6 | Pending |
-| FR-03 | Phase 6 | Pending |
-| IT-01 | Phase 6 | Pending |
-| IT-02 | Phase 6 | Pending |
+| FR-01 | Phase 6 | Complete |
+| FR-02 | Phase 6 | Complete |
+| FR-03 | Phase 6 | Complete |
+| IT-01 | Phase 6 | Complete |
+| IT-02 | Phase 6 | Complete |
 | QA-01 | Phase 7 | Pending |
 | QA-02 | Phase 7 | Pending |
 | QA-03 | Phase 7 | Pending |
@@ -69,4 +69,4 @@ Requirements for Tool Registry i18n completion.
 
 ---
 *Requirements defined: 2026-02-05*
-*Last updated: 2026-02-05 after Phase 5 complete*
+*Last updated: 2026-02-05 after Phase 6 complete*
