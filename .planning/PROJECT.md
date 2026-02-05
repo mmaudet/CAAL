@@ -8,16 +8,11 @@ CAAL is a local voice assistant with multilingual support. v1.0 shipped full EN/
 
 All UI text is internationalized — no hardcoded English strings in user-facing components.
 
-## Current Milestone: v1.1 Complete Tool Registry i18n
+## Current State
 
-**Goal:** Internationalize the Tool Registry components that were added after v1.0, ensuring FR and IT translations are complete and consistent.
+**Last shipped:** v1.1 Complete Tool Registry i18n (2026-02-05)
 
-**Target features:**
-- Extract hardcoded strings from workflow-submission-dialog.tsx
-- Extract hardcoded strings from workflow-detail-modal.tsx
-- Add French translations for all new keys
-- Add Italian translations for all new keys
-- Verify translation style consistency across all message files
+All user-facing frontend components are now fully internationalized with EN/FR/IT translations.
 
 ## Requirements
 
@@ -38,15 +33,17 @@ All UI text is internationalized — no hardcoded English strings in user-facing
 - ✓ Language selector in setup wizard — v1.0.1 (cmac86)
 - ✓ Localized settings panel and tools registry — v1.0.1 (cmac86)
 
+<!-- Shipped in v1.1 -->
+
+- ✓ workflow-submission-dialog.tsx fully internationalized — v1.1
+- ✓ workflow-detail-modal.tsx fully internationalized — v1.1
+- ✓ French translations for Tool Registry sharing UI — v1.1
+- ✓ Italian translations for Tool Registry sharing UI — v1.1
+- ✓ Translation style consistency verified — v1.1
+
 ### Active
 
-<!-- v1.1 scope -->
-
-- [ ] workflow-submission-dialog.tsx fully internationalized
-- [ ] workflow-detail-modal.tsx fully internationalized
-- [ ] French translations for Tool Registry sharing UI
-- [ ] Italian translations for Tool Registry sharing UI
-- [ ] Translation style consistency verified
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -77,8 +74,9 @@ All UI text is internationalized — no hardcoded English strings in user-facing
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Add keys to existing Tools namespace | Keeps related translations together | — Pending |
+| Add keys to existing Tools namespace | Keeps related translations together | ✓ Good |
 | French tu/toi register | Consistent with v1.0 prompt translations | ✓ Good |
+| Technical terms in English | Clarity across languages (n8n, workflow, credentials) | ✓ Good |
 
 ---
-*Last updated: 2026-02-05 after milestone v1.1 init*
+*Last updated: 2026-02-05 after v1.1 milestone complete*
