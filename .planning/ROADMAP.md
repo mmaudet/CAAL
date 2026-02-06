@@ -102,10 +102,11 @@ Plans:
   5. Model dropdown for OpenRouter supports search/filter across 400+ models
   6. Settings panel includes test connection button for both providers
   7. Settings panel shows restart prompt after provider change
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: [TBD]
+- [ ] 12-01-PLAN.md — Extend Settings interface, test functions, 4-provider toggle
+- [ ] 12-02-PLAN.md — Provider forms with cmdk searchable dropdown, restart prompt, i18n
 
 ## Progress
 
@@ -118,4 +119,4 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12
 | 9. Settings Schema Extension | v1.2 | 1/1 | Complete | 2026-02-06 |
 | 10. Connection Testing Endpoints | v1.2 | 1/1 | ✓ Complete | 2026-02-06 |
 | 11. Setup Wizard Frontend | v1.2 | 1/1 | ✓ Complete | 2026-02-06 |
-| 12. Settings Panel UI | v1.2 | 0/TBD | Not started | - |
+| 12. Settings Panel UI | v1.2 | 0/2 | Ready to execute | - |
