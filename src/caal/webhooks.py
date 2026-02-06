@@ -952,6 +952,19 @@ class TestN8nRequest(BaseModel):
     token: str | None = None
 
 
+class TestOpenAICompatibleRequest(BaseModel):
+    """Request body for /setup/test-openai-compatible endpoint."""
+
+    base_url: str  # e.g., "http://localhost:8000/v1"
+    api_key: str = ""  # Optional - some servers don't need auth
+
+
+class TestOpenRouterRequest(BaseModel):
+    """Request body for /setup/test-openrouter endpoint."""
+
+    api_key: str  # Required - OpenRouter always needs API key
+
+
 @app.get("/setup/status", response_model=SetupStatusResponse)
 async def get_setup_status() -> SetupStatusResponse:
     """Check if first-launch setup has been completed.
@@ -1190,6 +1203,104 @@ async def test_n8n(req: TestN8nRequest) -> TestConnectionResponse:
     except httpx.ConnectError:
         return TestConnectionResponse(
             success=False, error=f"Cannot connect to n8n at {req.url}"
+        )
+    except Exception as e:
+        return TestConnectionResponse(success=False, error=str(e))
+
+
+@app.post("/setup/test-openai-compatible", response_model=TestConnectionResponse)
+async def test_openai_compatible(req: TestOpenAICompatibleRequest) -> TestConnectionResponse:
+    """Test OpenAI-compatible server connection and list available models.
+
+    Args:
+        req: TestOpenAICompatibleRequest with base URL and optional API key
+
+    Returns:
+        TestConnectionResponse with success status and model list
+    """
+    # Normalize URL - strip trailing slash
+    base_url = req.base_url.rstrip("/")
+
+    try:
+        headers = {}
+        if req.api_key:
+            headers["Authorization"] = f"Bearer {req.api_key}"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{base_url}/models",
+                headers=headers,
+                timeout=10.0,
+            )
+
+            if response.status_code == 401:
+                return TestConnectionResponse(success=False, error="Invalid API key")
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Handle both OpenAI format {"data": [...]} and alternative {"models": [...]}
+            model_list = data.get("data") or data.get("models") or []
+
+            # Extract model IDs - handle both dict and string formats
+            models = []
+            for m in model_list:
+                if isinstance(m, dict):
+                    model_id = m.get("id") or m.get("name")
+                    if model_id:
+                        models.append(model_id)
+                elif isinstance(m, str):
+                    models.append(m)
+
+            return TestConnectionResponse(success=True, models=models)
+
+    except httpx.ConnectError:
+        return TestConnectionResponse(
+            success=False,
+            error=f"Cannot connect to server at {base_url}"
+        )
+    except httpx.TimeoutException:
+        return TestConnectionResponse(
+            success=False,
+            error=f"Connection timed out - server at {base_url} may be slow or unreachable"
+        )
+    except Exception as e:
+        return TestConnectionResponse(success=False, error=str(e))
+
+
+@app.post("/setup/test-openrouter", response_model=TestConnectionResponse)
+async def test_openrouter(req: TestOpenRouterRequest) -> TestConnectionResponse:
+    """Test OpenRouter API key and list available models with tool support.
+
+    Args:
+        req: TestOpenRouterRequest with API key
+
+    Returns:
+        TestConnectionResponse with success status and tool-capable model list
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://openrouter.ai/api/v1/models",
+                params={"supported_parameters": "tools"},
+                headers={"Authorization": f"Bearer {req.api_key}"},
+                timeout=15.0,  # Longer timeout for large response
+            )
+
+            if response.status_code == 401:
+                return TestConnectionResponse(success=False, error="Invalid API key")
+            response.raise_for_status()
+
+            data = response.json()
+            models = [m.get("id") for m in data.get("data", [])]
+            models = [m for m in models if m]
+
+            return TestConnectionResponse(success=True, models=models)
+
+    except httpx.TimeoutException:
+        return TestConnectionResponse(
+            success=False,
+            error="Request timed out - try again"
         )
     except Exception as e:
         return TestConnectionResponse(success=False, error=str(e))
