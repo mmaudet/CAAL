@@ -40,11 +40,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<String> _wakeGreetings = ["Hey, what's up?", "What's up?", 'How can I help?'];
 
   // Provider settings
+  String _sttProvider = 'speaches';
   String _llmProvider = 'ollama';
   String _ollamaHost = 'http://localhost:11434';
   String _ollamaModel = '';
   String _groqApiKey = '';
   String _groqModel = '';
+  String _openaiBaseUrl = '';
+  String _openaiApiKey = '';
+  String _openaiModel = '';
+  String _openrouterApiKey = '';
+  String _openrouterModel = '';
   String _ttsProvider = 'kokoro';
   String _ttsVoiceKokoro = 'am_puck';
   String _ttsVoicePiper = 'speaches-ai/piper-en_US-ryan-high';
@@ -80,7 +86,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<String> _voices = [];
   List<String> _ollamaModels = [];
   List<String> _groqModels = [];
+  List<String> _openaiModels = [];
+  List<String> _openrouterModels = [];
   List<String> _wakeWordModels = [];
+  String _openrouterSearch = '';
 
   // Test states
   bool _testingOllama = false;
@@ -89,6 +98,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testingGroq = false;
   bool _groqConnected = false;
   String? _groqError;
+  bool _testingOpenai = false;
+  bool _openaiConnected = false;
+  String? _openaiError;
+  bool _testingOpenrouter = false;
+  bool _openrouterConnected = false;
+  String? _openrouterError;
   bool _testingHass = false;
   bool _hassConnected = false;
   String? _hassError;
@@ -208,10 +223,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _wakeGreetingsController.text = _wakeGreetings.join('\n');
 
           // Providers
+          _sttProvider = settings['stt_provider'] ?? _sttProvider;
           _llmProvider = settings['llm_provider'] ?? _llmProvider;
           _ollamaHost = settings['ollama_host'] ?? _ollamaHost;
           _ollamaModel = settings['ollama_model'] ?? _ollamaModel;
           _groqModel = settings['groq_model'] ?? _groqModel;
+          _openaiBaseUrl = settings['openai_base_url'] ?? _openaiBaseUrl;
+          _openaiModel = settings['openai_model'] ?? _openaiModel;
+          _openrouterModel = settings['openrouter_model'] ?? _openrouterModel;
           _ttsProvider = settings['tts_provider'] ?? _ttsProvider;
           _ttsVoiceKokoro = settings['tts_voice_kokoro'] ?? _ttsVoiceKokoro;
           _ttsVoicePiper = settings['tts_voice_piper'] ?? _ttsVoicePiper;
@@ -377,6 +396,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _testOpenaiCompatible() async {
+    if (_openaiBaseUrl.isEmpty) return;
+    setState(() {
+      _testingOpenai = true;
+      _openaiError = null;
+    });
+
+    try {
+      final body = <String, dynamic>{'base_url': _openaiBaseUrl};
+      if (_openaiApiKey.isNotEmpty) body['api_key'] = _openaiApiKey;
+      final res = await http.post(
+        Uri.parse('$_webhookUrl/setup/test-openai-compatible'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      final result = jsonDecode(res.body);
+
+      if (result['success'] == true) {
+        setState(() {
+          _openaiConnected = true;
+          _openaiModels = List<String>.from(result['models'] ?? []);
+          if (_openaiModel.isEmpty && _openaiModels.isNotEmpty) {
+            _openaiModel = _openaiModels.first;
+          }
+        });
+      } else {
+        setState(() {
+          _openaiConnected = false;
+          _openaiError = result['error'] ?? 'Connection failed';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _openaiConnected = false;
+        _openaiError = 'Failed to connect';
+      });
+    } finally {
+      setState(() {
+        _testingOpenai = false;
+      });
+    }
+  }
+
+  Future<void> _testOpenRouter() async {
+    if (_openrouterApiKey.isEmpty) return;
+    setState(() {
+      _testingOpenrouter = true;
+      _openrouterError = null;
+    });
+
+    try {
+      final res = await http.post(
+        Uri.parse('$_webhookUrl/setup/test-openrouter'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'api_key': _openrouterApiKey}),
+      );
+      final result = jsonDecode(res.body);
+
+      if (result['success'] == true) {
+        setState(() {
+          _openrouterConnected = true;
+          _openrouterModels = List<String>.from(result['models'] ?? []);
+          if (_openrouterModel.isEmpty && _openrouterModels.isNotEmpty) {
+            _openrouterModel = _openrouterModels.first;
+          }
+        });
+      } else {
+        setState(() {
+          _openrouterConnected = false;
+          _openrouterError = result['error'] ?? 'Invalid API key';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _openrouterConnected = false;
+        _openrouterError = 'Failed to validate';
+      });
+    } finally {
+      setState(() {
+        _testingOpenrouter = false;
+      });
+    }
+  }
+
   Future<void> _testHass() async {
     if (_hassHost.isEmpty || _hassToken.isEmpty) return;
     setState(() {
@@ -499,10 +602,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'wake_greetings': greetings,
 
           // Providers
+          'stt_provider': _sttProvider,
           'llm_provider': _llmProvider,
           'ollama_host': _ollamaHost,
           'ollama_model': _ollamaModel,
           'groq_model': _groqModel,
+          'openai_base_url': _openaiBaseUrl,
+          'openai_model': _openaiModel,
+          'openrouter_model': _openrouterModel,
           'tts_provider': _ttsProvider,
           'tts_voice_kokoro': _ttsVoiceKokoro,
           'tts_voice_piper': _ttsVoicePiper,
@@ -548,7 +655,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return;
         }
 
-        // Save Groq API key if using Groq and key was entered
+        // Save API keys via /setup/complete for providers that need them
         if (_llmProvider == 'groq' && _groqApiKey.isNotEmpty) {
           await http.post(
             Uri.parse('$_webhookUrl/setup/complete'),
@@ -557,6 +664,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'llm_provider': 'groq',
               'groq_api_key': _groqApiKey,
               'groq_model': _groqModel,
+            }),
+          );
+        }
+        if (_llmProvider == 'openai_compatible' && _openaiApiKey.isNotEmpty) {
+          await http.post(
+            Uri.parse('$_webhookUrl/setup/complete'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'llm_provider': 'openai_compatible',
+              'openai_api_key': _openaiApiKey,
+              'openai_base_url': _openaiBaseUrl,
+              'openai_model': _openaiModel,
+            }),
+          );
+        }
+        if (_llmProvider == 'openrouter' && _openrouterApiKey.isNotEmpty) {
+          await http.post(
+            Uri.parse('$_webhookUrl/setup/complete'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'llm_provider': 'openrouter',
+              'openrouter_api_key': _openrouterApiKey,
+              'openrouter_model': _openrouterModel,
+            }),
+          );
+        }
+        // Save Groq API key for STT if STT=groq and LLM!=groq
+        if (_sttProvider == 'groq' && _llmProvider != 'groq' && _groqApiKey.isNotEmpty) {
+          await http.post(
+            Uri.parse('$_webhookUrl/setup/complete'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'llm_provider': _llmProvider,
+              'groq_api_key': _groqApiKey,
             }),
           );
         }
@@ -817,14 +958,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
                 _buildSectionHeader(l10n.providers, Icons.cloud_outlined),
                 _buildCard([
+                  // STT Provider
+                  _buildLabel(l10n.sttProvider),
+                  _buildProviderToggle(
+                    options: ['speaches', 'groq'],
+                    labels: ['Speaches', 'Groq Whisper'],
+                    subtitles: [l10n.speachesLocalStt, l10n.groqWhisperCloud],
+                    selected: _sttProvider,
+                    onChanged: (v) => setState(() => _sttProvider = v),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_sttProvider == 'groq' && _llmProvider == 'groq')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(l10n.sttGroqKeyShared,
+                          style: const TextStyle(color: Color(0xFF45997C), fontSize: 12)),
+                    ),
+                  if (_sttProvider == 'groq' && _llmProvider != 'groq') ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(l10n.sttGroqKeyNeeded,
+                          style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    ),
+                    _buildLabel(l10n.apiKey),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: _groqApiKey,
+                            obscureText: true,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _inputDecoration(hint: 'gsk_...'),
+                            onChanged: (v) => setState(() => _groqApiKey = v),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTestButton(
+                          l10n: l10n,
+                          testing: _testingGroq,
+                          connected: _groqConnected,
+                          onPressed: _testGroq,
+                        ),
+                      ],
+                    ),
+                    if (_groqError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(_groqError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                  ],
+
+                  const Divider(color: Colors.white24, height: 24),
+
                   // LLM Provider
                   _buildLabel(l10n.llmProvider),
                   _buildProviderToggle(
-                    options: ['ollama', 'groq'],
-                    labels: ['Ollama', 'Groq'],
-                    subtitles: [l10n.ollamaLocalPrivate, l10n.groqFastCloud],
+                    options: ['ollama', 'groq', 'openai_compatible', 'openrouter'],
+                    labels: ['Ollama', 'Groq', l10n.openaiCompatible, 'OpenRouter'],
+                    subtitles: [
+                      l10n.ollamaLocalPrivate,
+                      l10n.groqFastCloud,
+                      l10n.openaiCompatibleDesc,
+                      l10n.openrouterDesc,
+                    ],
                     selected: _llmProvider,
                     onChanged: (v) => setState(() => _llmProvider = v),
+                    grid: true,
                   ),
                   const SizedBox(height: 16),
 
@@ -853,7 +1053,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (_ollamaError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(_ollamaError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                        child: Text(_ollamaError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
                       ),
                     if (_ollamaConnected)
                       Padding(
@@ -865,7 +1066,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (_ollamaModels.isNotEmpty || _ollamaModel.isNotEmpty)
                       _buildDropdown(
                         label: l10n.model,
-                        value: _ollamaModel.isNotEmpty ? _ollamaModel : (_ollamaModels.isNotEmpty ? _ollamaModels.first : ''),
+                        value: _ollamaModel.isNotEmpty
+                            ? _ollamaModel
+                            : (_ollamaModels.isNotEmpty ? _ollamaModels.first : ''),
                         options: _ollamaModels.isNotEmpty ? _ollamaModels : [_ollamaModel],
                         onChanged: (v) => setState(() => _ollamaModel = v ?? _ollamaModel),
                       ),
@@ -881,7 +1084,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             initialValue: _groqApiKey,
                             obscureText: true,
                             style: const TextStyle(color: Colors.white),
-                            decoration: _inputDecoration(hint: _groqModel.isNotEmpty ? '••••••••••••••••' : 'gsk_...'),
+                            decoration: _inputDecoration(
+                                hint: _groqModel.isNotEmpty ? '••••••••••••••••' : 'gsk_...'),
                             onChanged: (v) => setState(() => _groqApiKey = v),
                           ),
                         ),
@@ -897,7 +1101,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (_groqError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(_groqError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                        child: Text(_groqError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
                       ),
                     if (_groqConnected)
                       Padding(
@@ -915,9 +1120,137 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (_groqModels.isNotEmpty || _groqModel.isNotEmpty)
                       _buildDropdown(
                         label: l10n.model,
-                        value: _groqModel.isNotEmpty ? _groqModel : (_groqModels.isNotEmpty ? _groqModels.first : ''),
+                        value: _groqModel.isNotEmpty
+                            ? _groqModel
+                            : (_groqModels.isNotEmpty ? _groqModels.first : ''),
                         options: _groqModels.isNotEmpty ? _groqModels : [_groqModel],
                         onChanged: (v) => setState(() => _groqModel = v ?? _groqModel),
+                      ),
+                  ],
+
+                  // OpenAI-compatible config
+                  if (_llmProvider == 'openai_compatible') ...[
+                    _buildLabel(l10n.baseUrl),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: _openaiBaseUrl,
+                            style: const TextStyle(color: Colors.white),
+                            decoration:
+                                _inputDecoration(hint: 'http://localhost:1234/v1'),
+                            onChanged: (v) => setState(() => _openaiBaseUrl = v),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTestButton(
+                          l10n: l10n,
+                          testing: _testingOpenai,
+                          connected: _openaiConnected,
+                          onPressed: _testOpenaiCompatible,
+                        ),
+                      ],
+                    ),
+                    if (_openaiError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(_openaiError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                    if (_openaiConnected)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(l10n.modelsAvailable(_openaiModels.length),
+                            style: const TextStyle(color: Color(0xFF45997C), fontSize: 12)),
+                      ),
+                    const SizedBox(height: 12),
+                    _buildLabel('${l10n.apiKey} (${l10n.optional})'),
+                    TextFormField(
+                      initialValue: _openaiApiKey,
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration(hint: 'sk-...'),
+                      onChanged: (v) => setState(() => _openaiApiKey = v),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 12),
+                      child: Text(l10n.openaiApiKeyNote,
+                          style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    ),
+                    if (_openaiModels.isNotEmpty || _openaiModel.isNotEmpty)
+                      _buildDropdown(
+                        label: l10n.model,
+                        value: _openaiModel.isNotEmpty
+                            ? _openaiModel
+                            : (_openaiModels.isNotEmpty ? _openaiModels.first : ''),
+                        options:
+                            _openaiModels.isNotEmpty ? _openaiModels : [_openaiModel],
+                        onChanged: (v) =>
+                            setState(() => _openaiModel = v ?? _openaiModel),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(l10n.testConnectionToSee,
+                            style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                      ),
+                  ],
+
+                  // OpenRouter config
+                  if (_llmProvider == 'openrouter') ...[
+                    _buildLabel(l10n.apiKey),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: _openrouterApiKey,
+                            obscureText: true,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _inputDecoration(
+                                hint: _openrouterModel.isNotEmpty
+                                    ? '••••••••••••••••'
+                                    : 'sk-or-...'),
+                            onChanged: (v) =>
+                                setState(() => _openrouterApiKey = v),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTestButton(
+                          l10n: l10n,
+                          testing: _testingOpenrouter,
+                          connected: _openrouterConnected,
+                          onPressed: _testOpenRouter,
+                        ),
+                      ],
+                    ),
+                    if (_openrouterError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(_openrouterError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                    if (_openrouterConnected)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(l10n.modelsAvailable(_openrouterModels.length),
+                            style: const TextStyle(color: Color(0xFF45997C), fontSize: 12)),
+                      ),
+                    if (!_openrouterConnected &&
+                        _openrouterApiKey.isEmpty &&
+                        _openrouterModel.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(l10n.apiKeyConfigured,
+                            style: const TextStyle(color: Color(0xFF45997C), fontSize: 12)),
+                      ),
+                    const SizedBox(height: 12),
+                    if (_openrouterModels.isNotEmpty || _openrouterModel.isNotEmpty)
+                      _buildSearchableModelDropdown(l10n)
+                    else if (_openrouterModel.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(l10n.testConnectionToSee,
+                            style: const TextStyle(color: Colors.white38, fontSize: 12)),
                       ),
                   ],
 
@@ -1268,53 +1601,149 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<String> subtitles,
     required String selected,
     required ValueChanged<String> onChanged,
+    bool grid = false,
   }) {
+    Widget buildOption(int i, {BorderRadius? borderRadius}) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => onChanged(options[i]),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: selected == options[i]
+                  ? const Color(0xFF45997C).withValues(alpha: 0.2)
+                  : const Color(0xFF2A2A2A),
+              border: Border.all(
+                color: selected == options[i]
+                    ? const Color(0xFF45997C)
+                    : Colors.white.withValues(alpha: 0.1),
+              ),
+              borderRadius: borderRadius ?? BorderRadius.zero,
+            ),
+            child: Column(
+              children: [
+                Text(
+                  labels[i],
+                  style: TextStyle(
+                    color: selected == options[i] ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitles[i],
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (grid && options.length == 4) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              buildOption(0,
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(8))),
+              buildOption(1,
+                  borderRadius: const BorderRadius.only(topRight: Radius.circular(8))),
+            ],
+          ),
+          Row(
+            children: [
+              buildOption(2,
+                  borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(8))),
+              buildOption(3,
+                  borderRadius: const BorderRadius.only(bottomRight: Radius.circular(8))),
+            ],
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         for (int i = 0; i < options.length; i++)
-          Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(options[i]),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: selected == options[i]
-                      ? const Color(0xFF45997C).withValues(alpha: 0.2)
-                      : const Color(0xFF2A2A2A),
-                  border: Border.all(
-                    color: selected == options[i]
-                        ? const Color(0xFF45997C)
-                        : Colors.white.withValues(alpha: 0.1),
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: i == 0 ? const Radius.circular(8) : Radius.zero,
-                    bottomLeft: i == 0 ? const Radius.circular(8) : Radius.zero,
-                    topRight: i == options.length - 1 ? const Radius.circular(8) : Radius.zero,
-                    bottomRight: i == options.length - 1 ? const Radius.circular(8) : Radius.zero,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      labels[i],
-                      style: TextStyle(
-                        color: selected == options[i] ? Colors.white : Colors.white70,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitles[i],
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          buildOption(i,
+              borderRadius: BorderRadius.only(
+                topLeft: i == 0 ? const Radius.circular(8) : Radius.zero,
+                bottomLeft: i == 0 ? const Radius.circular(8) : Radius.zero,
+                topRight: i == options.length - 1 ? const Radius.circular(8) : Radius.zero,
+                bottomRight:
+                    i == options.length - 1 ? const Radius.circular(8) : Radius.zero,
+              )),
+      ],
+    );
+  }
+
+  Widget _buildSearchableModelDropdown(AppLocalizations l10n) {
+    final allModels =
+        _openrouterModels.isNotEmpty ? _openrouterModels : [_openrouterModel];
+    final filtered = _openrouterSearch.isEmpty
+        ? allModels
+        : allModels
+            .where(
+                (m) => m.toLowerCase().contains(_openrouterSearch.toLowerCase()))
+            .toList();
+    final safeValue =
+        filtered.contains(_openrouterModel) ? _openrouterModel : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel(l10n.model),
+        TextFormField(
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          decoration: _inputDecoration(hint: l10n.searchModels),
+          onChanged: (v) => setState(() => _openrouterSearch = v),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          height: 160,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
+          child: filtered.isEmpty
+              ? Center(
+                  child: Text(l10n.noModelsFound,
+                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                )
+              : ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final model = filtered[index];
+                    final isSelected = model == safeValue;
+                    return ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      title: Text(
+                        model,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 12,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedTileColor:
+                          const Color(0xFF45997C).withValues(alpha: 0.2),
+                      onTap: () =>
+                          setState(() => _openrouterModel = model),
+                    );
+                  },
+                ),
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }

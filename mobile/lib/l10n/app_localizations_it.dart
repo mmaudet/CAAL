@@ -275,4 +275,46 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get toolParameters => 'Parametri dello strumento';
+
+  @override
+  String get sttProvider => 'Fornitore STT';
+
+  @override
+  String get openaiCompatible => 'OpenAI Compat.';
+
+  @override
+  String get openaiCompatibleDesc => 'Qualsiasi API OpenAI';
+
+  @override
+  String get openrouterDesc => '200+ modelli';
+
+  @override
+  String get baseUrl => 'URL di base';
+
+  @override
+  String get optional => 'opzionale';
+
+  @override
+  String get openaiApiKeyNote => 'Necessaria solo se il server richiede l\'autenticazione';
+
+  @override
+  String get searchModels => 'Cerca modelli...';
+
+  @override
+  String get noModelsFound => 'Nessun modello trovato';
+
+  @override
+  String get testConnectionToSee => 'Testa la connessione per vedere i modelli disponibili';
+
+  @override
+  String get speachesLocalStt => 'Whisper locale';
+
+  @override
+  String get groqWhisperCloud => 'Whisper cloud';
+
+  @override
+  String get sttGroqKeyShared => 'Usa la stessa chiave API del LLM';
+
+  @override
+  String get sttGroqKeyNeeded => 'Chiave API Groq richiesta per STT';
 }

@@ -254,5 +254,47 @@
   "@messageHint": { "description": "Text input placeholder" },
 
   "toolParameters": "Tool Parameters",
-  "@toolParameters": { "description": "Tool details sheet title" }
+  "@toolParameters": { "description": "Tool details sheet title" },
+
+  "sttProvider": "STT Provider",
+  "@sttProvider": { "description": "STT provider label" },
+
+  "openaiCompatible": "OpenAI Compat.",
+  "@openaiCompatible": { "description": "OpenAI-compatible provider label" },
+
+  "openaiCompatibleDesc": "Any OpenAI API",
+  "@openaiCompatibleDesc": { "description": "OpenAI-compatible subtitle" },
+
+  "openrouterDesc": "200+ models",
+  "@openrouterDesc": { "description": "OpenRouter subtitle" },
+
+  "baseUrl": "Base URL",
+  "@baseUrl": { "description": "Base URL field label" },
+
+  "optional": "optional",
+  "@optional": { "description": "Optional hint for fields" },
+
+  "openaiApiKeyNote": "Only needed if the server requires authentication",
+  "@openaiApiKeyNote": { "description": "OpenAI API key note" },
+
+  "searchModels": "Search models...",
+  "@searchModels": { "description": "Model search placeholder" },
+
+  "noModelsFound": "No models found",
+  "@noModelsFound": { "description": "Empty model search result" },
+
+  "testConnectionToSee": "Test connection to see available models",
+  "@testConnectionToSee": { "description": "Hint to test before model selection" },
+
+  "speachesLocalStt": "Local Whisper",
+  "@speachesLocalStt": { "description": "Speaches STT subtitle" },
+
+  "groqWhisperCloud": "Cloud Whisper",
+  "@groqWhisperCloud": { "description": "Groq Whisper STT subtitle" },
+
+  "sttGroqKeyShared": "Uses the same API key as LLM",
+  "@sttGroqKeyShared": { "description": "STT Groq key shared info" },
+
+  "sttGroqKeyNeeded": "Groq API key required for STT",
+  "@sttGroqKeyNeeded": { "description": "STT Groq key needed info" }
 }

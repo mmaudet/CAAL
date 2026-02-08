@@ -85,5 +85,20 @@
   "failedToSaveAgent": "Salvataggio delle impostazioni dell'agente fallito: {code}",
   "downloadingVoice": "Download del modello vocale...",
   "messageHint": "Messaggio...",
-  "toolParameters": "Parametri dello strumento"
+  "toolParameters": "Parametri dello strumento",
+
+  "sttProvider": "Fornitore STT",
+  "openaiCompatible": "OpenAI Compat.",
+  "openaiCompatibleDesc": "Qualsiasi API OpenAI",
+  "openrouterDesc": "200+ modelli",
+  "baseUrl": "URL di base",
+  "optional": "opzionale",
+  "openaiApiKeyNote": "Necessaria solo se il server richiede l'autenticazione",
+  "searchModels": "Cerca modelli...",
+  "noModelsFound": "Nessun modello trovato",
+  "testConnectionToSee": "Testa la connessione per vedere i modelli disponibili",
+  "speachesLocalStt": "Whisper locale",
+  "groqWhisperCloud": "Whisper cloud",
+  "sttGroqKeyShared": "Usa la stessa chiave API del LLM",
+  "sttGroqKeyNeeded": "Chiave API Groq richiesta per STT"
 }

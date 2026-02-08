@@ -602,6 +602,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tool Parameters'**
   String get toolParameters;
+
+  /// STT provider label
+  ///
+  /// In en, this message translates to:
+  /// **'STT Provider'**
+  String get sttProvider;
+
+  /// OpenAI-compatible provider label
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI Compat.'**
+  String get openaiCompatible;
+
+  /// OpenAI-compatible subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Any OpenAI API'**
+  String get openaiCompatibleDesc;
+
+  /// OpenRouter subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'200+ models'**
+  String get openrouterDesc;
+
+  /// Base URL field label
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL'**
+  String get baseUrl;
+
+  /// Optional hint for fields
+  ///
+  /// In en, this message translates to:
+  /// **'optional'**
+  String get optional;
+
+  /// OpenAI API key note
+  ///
+  /// In en, this message translates to:
+  /// **'Only needed if the server requires authentication'**
+  String get openaiApiKeyNote;
+
+  /// Model search placeholder
+  ///
+  /// In en, this message translates to:
+  /// **'Search models...'**
+  String get searchModels;
+
+  /// Empty model search result
+  ///
+  /// In en, this message translates to:
+  /// **'No models found'**
+  String get noModelsFound;
+
+  /// Hint to test before model selection
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection to see available models'**
+  String get testConnectionToSee;
+
+  /// Speaches STT subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Local Whisper'**
+  String get speachesLocalStt;
+
+  /// Groq Whisper STT subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud Whisper'**
+  String get groqWhisperCloud;
+
+  /// STT Groq key shared info
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the same API key as LLM'**
+  String get sttGroqKeyShared;
+
+  /// STT Groq key needed info
+  ///
+  /// In en, this message translates to:
+  /// **'Groq API key required for STT'**
+  String get sttGroqKeyNeeded;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

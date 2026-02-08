@@ -85,5 +85,20 @@
   "failedToSaveAgent": "Échec de l'enregistrement des paramètres de l'agent : {code}",
   "downloadingVoice": "Téléchargement du modèle vocal...",
   "messageHint": "Message...",
-  "toolParameters": "Paramètres de l'outil"
+  "toolParameters": "Paramètres de l'outil",
+
+  "sttProvider": "Fournisseur STT",
+  "openaiCompatible": "OpenAI Compat.",
+  "openaiCompatibleDesc": "Toute API OpenAI",
+  "openrouterDesc": "200+ modèles",
+  "baseUrl": "URL de base",
+  "optional": "optionnel",
+  "openaiApiKeyNote": "Nécessaire uniquement si le serveur requiert une authentification",
+  "searchModels": "Rechercher des modèles...",
+  "noModelsFound": "Aucun modèle trouvé",
+  "testConnectionToSee": "Testez la connexion pour voir les modèles disponibles",
+  "speachesLocalStt": "Whisper local",
+  "groqWhisperCloud": "Whisper cloud",
+  "sttGroqKeyShared": "Utilise la même clé API que le LLM",
+  "sttGroqKeyNeeded": "Clé API Groq requise pour le STT"
 }
