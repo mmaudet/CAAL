@@ -935,7 +935,7 @@ class TestOllamaRequest(BaseModel):
 class TestGroqRequest(BaseModel):
     """Request body for /setup/test-groq endpoint."""
 
-    api_key: str
+    api_key: str = ""  # Falls back to stored key if empty
 
 
 class TestHassRequest(BaseModel):
@@ -962,7 +962,7 @@ class TestOpenAICompatibleRequest(BaseModel):
 class TestOpenRouterRequest(BaseModel):
     """Request body for /setup/test-openrouter endpoint."""
 
-    api_key: str  # Required - OpenRouter always needs API key
+    api_key: str = ""  # Falls back to stored key if empty
 
 
 @app.get("/setup/status", response_model=SetupStatusResponse)
@@ -1104,11 +1104,19 @@ async def test_groq(req: TestGroqRequest) -> TestConnectionResponse:
     Returns:
         TestConnectionResponse with success status
     """
+    # Use stored API key as fallback when none provided
+    api_key = req.api_key
+    if not api_key:
+        stored = settings_module.load_settings()
+        api_key = stored.get("groq_api_key", "")
+    if not api_key:
+        return TestConnectionResponse(success=False, error="No API key provided")
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 "https://api.groq.com/openai/v1/models",
-                headers={"Authorization": f"Bearer {req.api_key}"},
+                headers={"Authorization": f"Bearer {api_key}"},
                 timeout=10.0,
             )
             if response.status_code == 401:
@@ -1230,10 +1238,16 @@ async def test_openai_compatible(req: TestOpenAICompatibleRequest) -> TestConnec
     # Normalize URL - strip trailing slash
     base_url = req.base_url.rstrip("/")
 
+    # Use stored API key as fallback when none provided
+    api_key = req.api_key
+    if not api_key:
+        stored = settings_module.load_settings()
+        api_key = stored.get("openai_api_key", "")
+
     try:
         headers = {}
-        if req.api_key:
-            headers["Authorization"] = f"Bearer {req.api_key}"
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -1287,12 +1301,20 @@ async def test_openrouter(req: TestOpenRouterRequest) -> TestConnectionResponse:
     Returns:
         TestConnectionResponse with success status and tool-capable model list
     """
+    # Use stored API key as fallback when none provided
+    api_key = req.api_key
+    if not api_key:
+        stored = settings_module.load_settings()
+        api_key = stored.get("openrouter_api_key", "")
+    if not api_key:
+        return TestConnectionResponse(success=False, error="No API key provided")
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 "https://openrouter.ai/api/v1/models",
                 params={"supported_parameters": "tools"},
-                headers={"Authorization": f"Bearer {req.api_key}"},
+                headers={"Authorization": f"Bearer {api_key}"},
                 timeout=15.0,  # Longer timeout for large response
             )
 

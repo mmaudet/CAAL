@@ -89,7 +89,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<String> _openaiModels = [];
   List<String> _openrouterModels = [];
   List<String> _wakeWordModels = [];
-  String _openrouterSearch = '';
 
   // Test states
   bool _testingOllama = false;
@@ -355,7 +354,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _testGroq() async {
-    if (_groqApiKey.isEmpty) return;
+    // Allow testing with empty key - backend falls back to stored key
+    if (_groqApiKey.isEmpty && _groqModel.isEmpty) return;
     setState(() {
       _testingGroq = true;
       _groqError = null;
@@ -440,7 +440,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _testOpenRouter() async {
-    if (_openrouterApiKey.isEmpty) return;
+    // Allow testing with empty key - backend falls back to stored key
+    if (_openrouterApiKey.isEmpty && _openrouterModel.isEmpty) return;
     setState(() {
       _testingOpenrouter = true;
       _openrouterError = null;
@@ -876,7 +877,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildCard([
                 _buildLabel(l10n.language),
                 DropdownButtonFormField<String>(
-                  initialValue: context.watch<LocaleProvider>().locale.languageCode,
+                  initialValue: _language,
                   style: const TextStyle(color: Colors.white),
                   dropdownColor: const Color(0xFF2A2A2A),
                   decoration: _inputDecoration(),
@@ -887,6 +888,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                   onChanged: (value) async {
                     if (value != null) {
+                      // Keep _language in sync so _save() doesn't overwrite
+                      _language = value;
                       // Update app locale immediately for UI
                       final localeProvider = context.read<LocaleProvider>();
                       await localeProvider.setLocale(
@@ -1169,9 +1172,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       initialValue: _openaiApiKey,
                       obscureText: true,
                       style: const TextStyle(color: Colors.white),
-                      decoration: _inputDecoration(hint: 'sk-...'),
+                      decoration: _inputDecoration(
+                          hint: _openaiModel.isNotEmpty
+                              ? '••••••••••••••••'
+                              : 'sk-...'),
                       onChanged: (v) => setState(() => _openaiApiKey = v),
                     ),
+                    if (!_openaiConnected &&
+                        _openaiApiKey.isEmpty &&
+                        _openaiModel.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(l10n.apiKeyConfigured,
+                            style: const TextStyle(color: Color(0xFF45997C), fontSize: 12)),
+                      ),
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 12),
                       child: Text(l10n.openaiApiKeyNote,
@@ -1683,65 +1697,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSearchableModelDropdown(AppLocalizations l10n) {
-    final allModels =
-        _openrouterModels.isNotEmpty ? _openrouterModels : [_openrouterModel];
-    final filtered = _openrouterSearch.isEmpty
-        ? allModels
-        : allModels
-            .where(
-                (m) => m.toLowerCase().contains(_openrouterSearch.toLowerCase()))
-            .toList();
-    final safeValue =
-        filtered.contains(_openrouterModel) ? _openrouterModel : null;
+  void _showModelPicker(AppLocalizations l10n) {
+    var search = '';
+    unawaited(showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      builder: (context) {
+        final allModels =
+            _openrouterModels.isNotEmpty ? _openrouterModels : [_openrouterModel];
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = search.isEmpty
+                ? allModels
+                : allModels
+                    .where((m) => m.toLowerCase().contains(search.toLowerCase()))
+                    .toList();
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.3,
+              maxChildSize: 0.85,
+              expand: false,
+              builder: (context, scrollController) => Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: TextField(
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: l10n.searchModels,
+                        hintStyle: const TextStyle(color: Colors.white38),
+                        prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFF2A2A2A),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      onChanged: (v) => setSheetState(() => search = v),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Text(l10n.noModelsFound,
+                                style: const TextStyle(color: Colors.white38, fontSize: 13)),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            itemCount: filtered.length,
+                            itemBuilder: (context, index) {
+                              final model = filtered[index];
+                              final isSelected = model == _openrouterModel;
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  model,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight:
+                                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                ),
+                                tileColor: isSelected
+                                    ? const Color(0xFF45997C).withValues(alpha: 0.2)
+                                    : null,
+                                trailing: isSelected
+                                    ? const Icon(Icons.check, color: Color(0xFF45997C), size: 18)
+                                    : null,
+                                onTap: () {
+                                  Navigator.of(context).pop(model);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((selected) {
+      if (selected != null) {
+        setState(() => _openrouterModel = selected);
+      }
+    }));
+  }
 
+  Widget _buildSearchableModelDropdown(AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLabel(l10n.model),
-        TextFormField(
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-          decoration: _inputDecoration(hint: l10n.searchModels),
-          onChanged: (v) => setState(() => _openrouterSearch = v),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          height: 160,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: filtered.isEmpty
-              ? Center(
-                  child: Text(l10n.noModelsFound,
-                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                )
-              : ListView.builder(
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final model = filtered[index];
-                    final isSelected = model == safeValue;
-                    return ListTile(
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      title: Text(
-                        model,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                      selected: isSelected,
-                      selectedTileColor:
-                          const Color(0xFF45997C).withValues(alpha: 0.2),
-                      onTap: () =>
-                          setState(() => _openrouterModel = model),
-                    );
-                  },
+        GestureDetector(
+          onTap: () => _showModelPicker(l10n),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _openrouterModel.isNotEmpty
+                        ? _openrouterModel
+                        : l10n.searchModels,
+                    style: TextStyle(
+                      color: _openrouterModel.isNotEmpty
+                          ? Colors.white
+                          : Colors.white38,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const Icon(Icons.arrow_drop_down, color: Colors.white38),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 16),
       ],
