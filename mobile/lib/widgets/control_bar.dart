@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -19,14 +20,14 @@ class ControlBar extends StatelessWidget {
   const ControlBar({super.key});
 
   void _showToolDetails(BuildContext context, ToolStatus status) {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) => _ToolDetailsSheet(status: status),
-    );
+    ));
   }
 
   @override

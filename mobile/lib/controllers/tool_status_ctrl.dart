@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -68,7 +69,7 @@ class ToolStatusCtrl extends ChangeNotifier {
 
   @override
   void dispose() {
-    _listener.dispose();
+    unawaited(_listener.dispose());
     super.dispose();
   }
 }

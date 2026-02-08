@@ -53,7 +53,7 @@ class AudioFilterCtrl extends ChangeNotifier {
 
   @override
   void dispose() {
-    _listener?.dispose();
+    unawaited(_listener?.dispose());
     _listener = null;
     super.dispose();
   }

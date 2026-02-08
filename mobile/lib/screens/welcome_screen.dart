@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' as sdk;
 import 'package:provider/provider.dart';
@@ -19,29 +21,29 @@ class WelcomeScreen extends StatelessWidget {
     // If first start (not configured), show simple URL setup
     // Otherwise show full settings page
     if (!configService.isConfigured) {
-      Navigator.of(context).push(
+      unawaited(Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => SetupScreen(
             configService: configService,
             onConfigured: () {
               Navigator.of(context).pop();
-              appCtrl.updateConfig(serverUrl: configService.serverUrl);
+              unawaited(appCtrl.updateConfig(serverUrl: configService.serverUrl));
             },
           ),
         ),
-      );
+      ));
     } else {
-      Navigator.of(context).push(
+      unawaited(Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => SettingsScreen(
             configService: configService,
             onSave: () {
               Navigator.of(context).pop();
-              appCtrl.updateConfig(serverUrl: configService.serverUrl);
+              unawaited(appCtrl.updateConfig(serverUrl: configService.serverUrl));
             },
           ),
         ),
-      );
+      ));
     }
   }
 

@@ -202,7 +202,7 @@ class AppCtrl extends ChangeNotifier {
       await _session.start();
       if (_session.connectionState == sdk.ConnectionState.connected) {
         appScreenState = AppScreenState.agent;
-        WakelockPlus.enable();
+        unawaited(WakelockPlus.enable());
         notifyListeners();
       }
     } catch (error, stackTrace) {
@@ -219,7 +219,7 @@ class AppCtrl extends ChangeNotifier {
           await _session.start();
           if (_session.connectionState == sdk.ConnectionState.connected) {
             appScreenState = AppScreenState.agent;
-            WakelockPlus.enable();
+            unawaited(WakelockPlus.enable());
             notifyListeners();
             return;
           }
@@ -243,7 +243,7 @@ class AppCtrl extends ChangeNotifier {
   Future<void> disconnect() async {
     await session.end();
     session.restoreMessageHistory(const []);
-    WakelockPlus.disable();
+    unawaited(WakelockPlus.disable());
     appScreenState = AppScreenState.welcome;
     agentScreenState = AgentScreenState.visualizer;
     notifyListeners();

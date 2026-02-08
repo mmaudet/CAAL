@@ -876,7 +876,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildCard([
                 _buildLabel(l10n.language),
                 DropdownButtonFormField<String>(
-                  value: context.watch<LocaleProvider>().locale.languageCode,
+                  initialValue: context.watch<LocaleProvider>().locale.languageCode,
                   style: const TextStyle(color: Colors.white),
                   dropdownColor: const Color(0xFF2A2A2A),
                   decoration: _inputDecoration(),
@@ -915,11 +915,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             }),
                           );
                           // Download the Piper model so it appears in voice list
-                          http.post(
+                          unawaited(http.post(
                             Uri.parse('$_webhookUrl/download-piper-model'),
                             headers: {'Content-Type': 'application/json'},
                             body: jsonEncode({'model_id': modelId}),
-                          );
+                          ));
                         } catch (e) {
                           // Best-effort
                         }

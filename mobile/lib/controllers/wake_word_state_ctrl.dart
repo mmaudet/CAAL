@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -46,13 +47,13 @@ class WakeWordStateCtrl extends ChangeNotifier {
     // If room is already connected, fetch immediately
     if (room.connectionState == sdk.ConnectionState.connected) {
       debugPrint('[WakeWordStateCtrl] Room already connected, fetching state');
-      _fetchInitialState();
+      unawaited(_fetchInitialState());
     }
   }
 
   void _handleRoomConnected(sdk.RoomConnectedEvent event) {
     debugPrint('[WakeWordStateCtrl] Room connected, fetching initial state');
-    _fetchInitialState();
+    unawaited(_fetchInitialState());
   }
 
   Future<void> _fetchInitialState({int retryCount = 0}) async {
@@ -99,7 +100,7 @@ class WakeWordStateCtrl extends ChangeNotifier {
         final delay = Duration(milliseconds: 500 * (retryCount + 1));
         debugPrint('[WakeWordStateCtrl] Retrying in ${delay.inMilliseconds}ms...');
         await Future.delayed(delay);
-        _fetchInitialState(retryCount: retryCount + 1);
+        unawaited(_fetchInitialState(retryCount: retryCount + 1));
       }
     }
   }
@@ -134,7 +135,7 @@ class WakeWordStateCtrl extends ChangeNotifier {
 
   @override
   void dispose() {
-    _listener.dispose();
+    unawaited(_listener.dispose());
     super.dispose();
   }
 }
